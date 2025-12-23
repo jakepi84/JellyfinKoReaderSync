@@ -1,0 +1,21 @@
+name: "KOReader Sync"
+guid: "6B0B1F98-F7B5-4E8A-9E6C-4D5A3B2E1C9A"
+version: "1.0.0.0"
+targetAbi: "10.10.0.0"
+framework: "net9.0"
+owner: "jakepi84"
+overview: "Sync book reading progress with KOReader"
+description: >
+  Provides an API endpoint compatible with KOReader Progress Sync functionality.
+  Allows users to sync their book reading progress between KOReader devices and Jellyfin.
+  The plugin matches books using ISBN and resolves conflicts by keeping the furthest progress.
+
+category: "Books"
+artifacts:
+  - "Jellyfin.Plugin.KoReaderSync.dll"
+changelog: |-
+  - Initial release
+  - KOReader Progress Sync API implementation
+  - Jellyfin user authentication support
+  - Book matching via ISBN
+  - Conflict resolution (furthest progress wins)
