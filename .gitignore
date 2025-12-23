@@ -24,6 +24,9 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
+# Release packaging
+release/
+
 # Visual Studio cache/options directory
 .vs/
 
