@@ -1,0 +1,21 @@
+[
+  {
+    "guid": "6B0B1F98-F7B5-4E8A-9E6C-4D5A3B2E1C9A",
+    "name": "KOReader Sync",
+    "description": "Sync book reading progress with KOReader devices. Provides an API endpoint compatible with KOReader Progress Sync functionality, allowing users to sync their book reading progress between KOReader devices and Jellyfin.",
+    "overview": "Sync book reading progress with KOReader",
+    "owner": "jakepi84",
+    "category": "Books",
+    "imageUrl": "https://raw.githubusercontent.com/jakepi84/JellyfinKoReaderSync/main/logo.png",
+    "versions": [
+      {
+        "version": "1.0.0.0",
+        "changelog": "Initial release\n- KOReader Progress Sync API implementation\n- Jellyfin user authentication support\n- Book matching via ISBN (placeholder)\n- Conflict resolution (furthest progress wins)\n- Thorough code documentation",
+        "targetAbi": "10.10.0.0",
+        "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v1.0.0/jellyfin-koreader-sync_1.0.0.0.zip",
+        "checksum": "PLACEHOLDER_CHECKSUM",
+        "timestamp": "2024-12-23T01:00:00Z"
+      }
+    ]
+  }
+]
