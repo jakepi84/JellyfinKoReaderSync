@@ -19,9 +19,9 @@ fi
 
 echo "Updating manifest.json for version $VERSION..."
 
-# Calculate checksum
-CHECKSUM=$(sha256sum "$ZIP_FILE" | awk '{print toupper($1)}')
-echo "Checksum: $CHECKSUM"
+# Calculate checksum (Jellyfin uses MD5 for plugin checksums)
+CHECKSUM=$(md5sum "$ZIP_FILE" | awk '{print toupper($1)}')
+echo "Checksum (MD5): $CHECKSUM"
 
 # Get current timestamp
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
