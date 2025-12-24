@@ -7,11 +7,15 @@ on:
       - 'v*'
   pull_request:
     branches: [ main ]
+  release:
+    types: [ published ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
     - uses: actions/checkout@v3
@@ -41,9 +45,11 @@ jobs:
         path: artifacts/jellyfin-koreader-sync.zip
     
     - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/v')
+      if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'release')
       uses: softprops/action-gh-release@v1
       with:
         files: artifacts/jellyfin-koreader-sync.zip
+        tag_name: ${{ github.event.release.tag_name || github.ref_name }}
+        name: KOReader Sync ${{ github.event.release.tag_name || github.ref_name }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
