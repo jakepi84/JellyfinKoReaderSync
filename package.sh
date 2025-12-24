@@ -3,7 +3,13 @@
 
 set -e
 
-VERSION="${1:-1.0.0.0}"
+# Extract version from Directory.Build.props if not provided
+if [ -z "$1" ]; then
+    VERSION=$(xmlstarlet sel -t -v "//Version" Directory.Build.props 2>/dev/null || echo "1.0.0.0")
+else
+    VERSION="$1"
+fi
+
 OUTPUT_DIR="./release"
 
 echo "Building Jellyfin KOReader Sync Plugin version $VERSION..."
