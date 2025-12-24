@@ -4,6 +4,7 @@ using System.Text.Json;
 using Jellyfin.Plugin.KoReaderSync.Models;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Common.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.KoReaderSync.Services;
@@ -18,6 +19,7 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     private readonly IUserDataManager _userDataManager;
     private readonly ILibraryManager _libraryManager;
     private readonly string _dataPath;
+    private readonly IApplicationPaths _applicationPaths;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="KoReaderSyncManager"/> class.
@@ -25,23 +27,20 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     /// <param name="logger">The logger.</param>
     /// <param name="userDataManager">The user data manager.</param>
     /// <param name="libraryManager">The library manager.</param>
+    /// <param name="applicationPaths">The Jellyfin application paths provider.</param>
     public KoReaderSyncManager(
         ILogger<KoReaderSyncManager> logger,
         IUserDataManager userDataManager,
-        ILibraryManager libraryManager)
+        ILibraryManager libraryManager,
+        IApplicationPaths applicationPaths)
     {
         _logger = logger;
         _userDataManager = userDataManager;
         _libraryManager = libraryManager;
+        _applicationPaths = applicationPaths;
 
-        // Store progress data in the Jellyfin data directory
-        var pluginDataPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "jellyfin",
-            "data",
-            "koreader-sync");
-
-        _dataPath = pluginDataPath;
+        // Store progress data under Jellyfin's plugin configurations path (writable across OSes)
+        _dataPath = Path.Combine(_applicationPaths.PluginConfigurationsPath, "KoReaderSync");
 
         // Ensure the data directory exists
         if (!Directory.Exists(_dataPath))

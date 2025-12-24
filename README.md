@@ -156,10 +156,14 @@ When the same book is read on multiple devices:
 
 ## Data Storage
 
-Progress data is stored in your Jellyfin data directory:
+Progress data is stored under Jellyfin's plugin configuration directory (writable across OSes):
 ```
-<jellyfin-data-path>/koreader-sync/<user-id>/<document-hash>.json
+<plugin-config-path>/KoReaderSync/<user-id>/<document-hash>.json
 ```
+Common locations:
+- Linux (Docker): `/config/plugins/KoReaderSync`
+- Linux (package): `/var/lib/jellyfin/plugins/KoReaderSync`
+- Windows: `%ProgramData%\Jellyfin\Server\plugins\KoReaderSync`
 
 Each progress file contains:
 ```json
@@ -174,6 +178,17 @@ Each progress file contains:
 ```
 
 ## Troubleshooting
+### Permission Errors
+
+**Problem**: Jellyfin logs show `UnauthorizedAccessException: Access to the path '/jellyfin/data' is denied` when calling `/plugins/koreader/v1/users/auth`.
+
+**Cause**: Older versions wrote to a hardcoded path. Current builds store data under Jellyfin's plugin configuration directory, which is writable on all platforms.
+
+**Solutions:**
+- Update the plugin to the latest build.
+- Ensure the Jellyfin process has write access to the plugin config directory (see locations above).
+- For Docker, mount `/config` with read/write permissions.
+
 
 ### Connection Issues
 
