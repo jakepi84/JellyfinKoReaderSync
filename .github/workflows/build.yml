@@ -12,6 +12,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Skip if the commit is from github-actions bot
+    if: "!contains(github.event.head_commit.message, '[skip ci]') && github.actor != 'github-actions[bot]'"
     permissions:
       contents: write
     
@@ -64,7 +66,7 @@ jobs:
         git config --local user.name "github-actions[bot]"
         git add manifest.json
         if ! git diff --staged --quiet; then
-          git commit -m "Update manifest.json for version ${{ steps.get_version.outputs.VERSION }}"
+          git commit -m "Update manifest.json for version ${{ steps.get_version.outputs.VERSION }} [skip ci]"
           git push
         fi
     

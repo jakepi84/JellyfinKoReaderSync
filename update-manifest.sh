@@ -30,14 +30,17 @@ echo "Timestamp: $TIMESTAMP"
 # Extract changelog from build.yaml
 CHANGELOG=$(grep -A 100 "^changelog:" build.yaml | tail -n +2 | sed '/^[a-zA-Z]/,$d' | sed 's/^  - /- /g' | sed 's/^  //g')
 
-# Extract targetAbi from build.yaml
-TARGET_ABI=$(grep "^targetAbi:" build.yaml | cut -d'"' -f2)
+# Extract targetAbi from build.yaml (handles both quoted and unquoted values)
+TARGET_ABI=$(grep "^targetAbi:" build.yaml | sed 's/^targetAbi:[[:space:]]*"\?\([^"]*\)"\?/\1/')
+
+# Get repository URL from git remote
+REPO_URL=$(git config --get remote.origin.url | sed 's/\.git$//' | sed 's|git@github.com:|https://github.com/|')
 
 # Extract tag version (X.Y.Z format)
 TAG="v$(echo $VERSION | cut -d. -f1-3)"
 
 # Construct sourceUrl
-SOURCE_URL="https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/${TAG}/jellyfin-koreader-sync_${VERSION}.zip"
+SOURCE_URL="${REPO_URL}/releases/download/${TAG}/jellyfin-koreader-sync_${VERSION}.zip"
 
 # Create new version entry
 NEW_VERSION=$(jq -n \
