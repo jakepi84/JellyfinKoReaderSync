@@ -35,7 +35,7 @@ jobs:
         zip -r jellyfin-koreader-sync.zip jellyfin-koreader-sync
     
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: jellyfin-koreader-sync
         path: artifacts/jellyfin-koreader-sync.zip
