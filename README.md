@@ -1,9 +1,5 @@
 # Jellyfin KOReader Sync Plugin
 
-<p align="center">
-  <img alt="Jellyfin Logo" src="https://raw.githubusercontent.com/jellyfin/jellyfin-ux/master/branding/SVG/banner-logo-solid.svg" width="600"/>
-</p>
-
 A Jellyfin plugin that enables seamless reading progress synchronization between [KOReader](https://github.com/koreader/koreader) devices and your Jellyfin server. Keep your book reading progress in sync across all your e-readers and devices!
 
 ## Features
@@ -292,4 +288,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-Made with ❤️ for the Jellyfin and KOReader communities
+Made with copilot, I am not a developer and this is mostly AI slop code.
