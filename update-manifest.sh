@@ -62,12 +62,12 @@ NEW_VERSION=$(jq -n \
 # Update manifest.json
 # First, remove any existing entry with the same version
 jq --arg version "$VERSION" \
-  '.[0].versions = [.[0].versions[] | select(.version != $version)]' \
+  '.versions = [.versions[] | select(.version != $version)]' \
   manifest.json > manifest.tmp.json
 
 # Then add the new version at the beginning
 jq --argjson newVersion "$NEW_VERSION" \
-  '.[0].versions = [$newVersion] + .[0].versions' \
+  '.versions = [$newVersion] + .versions' \
   manifest.tmp.json > manifest.json
 
 rm manifest.tmp.json
