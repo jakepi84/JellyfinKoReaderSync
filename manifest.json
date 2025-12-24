@@ -13,8 +13,8 @@
         "changelog": "Initial release\n- KOReader Progress Sync API implementation\n- Jellyfin user authentication support\n- Book matching via ISBN (placeholder)\n- Conflict resolution (furthest progress wins)\n- Thorough code documentation",
         "targetAbi": "10.10.0.0",
         "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v1.0.0/jellyfin-koreader-sync_1.0.0.0.zip",
-        "checksum": "PLACEHOLDER_CHECKSUM",
-        "timestamp": "2024-12-23T01:00:00Z"
+        "checksum": "F95E8D3841AB53F261D94208FBE0384736B3976B607CEB41693777A14C7CB269",
+        "timestamp": "2025-12-23T20:09:00Z"
       }
     ]
   }
