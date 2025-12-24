@@ -18,13 +18,13 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    - name: Install jq
-      run: sudo apt-get update && sudo apt-get install -y jq
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install -y jq xmlstarlet
     
-    - name: Extract version from manifest
+    - name: Extract version from Directory.Build.props
       id: get_version
       run: |
-        VERSION=$(jq -r '.versions[0].version' manifest.json)
+        VERSION=$(xmlstarlet sel -t -v "//Version" Directory.Build.props)
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         # Extract X.Y.Z from X.Y.Z.W format
         TAG="v$(echo $VERSION | cut -d. -f1-3)"
@@ -49,6 +49,25 @@ jobs:
         cp Jellyfin.Plugin.KoReaderSync/bin/Release/net9.0/Jellyfin.Plugin.KoReaderSync.dll artifacts/jellyfin-koreader-sync/
         cd artifacts
         zip -r "jellyfin-koreader-sync_${{ steps.get_version.outputs.VERSION }}.zip" jellyfin-koreader-sync
+    
+    - name: Update manifest.json
+      run: |
+        ./update-manifest.sh "${{ steps.get_version.outputs.VERSION }}" "artifacts/jellyfin-koreader-sync_${{ steps.get_version.outputs.VERSION }}.zip"
+    
+    - name: Commit updated manifest
+      if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add manifest.json
+        git diff --staged --quiet || git commit -m "Update manifest.json for version ${{ steps.get_version.outputs.VERSION }}"
+    
+    - name: Push manifest changes
+      if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ github.ref }}
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
