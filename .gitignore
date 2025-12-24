@@ -46,5 +46,9 @@ _ReSharper*/
 # Build results
 artifacts/
 
+# Test artifacts
+test*/
+test_artifacts/
+
 # macOS
 .DS_Store

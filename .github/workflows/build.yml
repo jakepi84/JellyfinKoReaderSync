@@ -52,8 +52,10 @@ jobs:
       run: |
         mkdir -p artifacts/jellyfin-koreader-sync
         cp Jellyfin.Plugin.KoReaderSync/bin/Release/net9.0/Jellyfin.Plugin.KoReaderSync.dll artifacts/jellyfin-koreader-sync/
+        # Set deterministic timestamps for reproducible builds (Unix epoch)
+        find artifacts/jellyfin-koreader-sync -exec touch -d '1970-01-01 00:00:00 UTC' {} +
         cd artifacts
-        zip -r "jellyfin-koreader-sync_${{ steps.get_version.outputs.VERSION }}.zip" jellyfin-koreader-sync
+        zip -r -X "jellyfin-koreader-sync_${{ steps.get_version.outputs.VERSION }}.zip" jellyfin-koreader-sync
     
     - name: Update manifest.json
       run: |
