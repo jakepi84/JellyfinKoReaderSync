@@ -34,7 +34,7 @@ mkdir -p "$OUTPUT_DIR"
 cp Jellyfin.Plugin.KoReaderSync/bin/Release/net9.0/Jellyfin.Plugin.KoReaderSync.dll "$OUTPUT_DIR/"
 
 # Set deterministic timestamps for reproducible builds (Unix epoch)
-find "$OUTPUT_DIR" -exec touch -t 197001010000.00 {} +
+find "$OUTPUT_DIR" -exec touch -d '1970-01-01 00:00:00 UTC' {} +
 
 # Create a zip file
 cd "$OUTPUT_DIR"
