@@ -18,6 +18,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
+    - name: Install jq
+      run: sudo apt-get update && sudo apt-get install -y jq
+    
     - name: Extract version from manifest
       id: get_version
       run: |
@@ -61,6 +64,8 @@ jobs:
         name: Release ${{ steps.get_version.outputs.TAG }}
         draft: false
         prerelease: false
+        make_latest: true
+        fail_on_unmatched_files: true
         files: artifacts/jellyfin-koreader-sync_${{ steps.get_version.outputs.VERSION }}.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
