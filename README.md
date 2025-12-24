@@ -230,9 +230,27 @@ dotnet restore
 # Build the plugin
 dotnet build --configuration Release
 
+# Or use the package script (automatically extracts version from Directory.Build.props)
+./package.sh
+
 # Output will be in:
-# Jellyfin.Plugin.KoReaderSync/bin/Release/net8.0/Jellyfin.Plugin.KoReaderSync.dll
+# Jellyfin.Plugin.KoReaderSync/bin/Release/net9.0/Jellyfin.Plugin.KoReaderSync.dll
+# release/jellyfin-koreader-sync_<version>.zip (if using package.sh)
 ```
+
+### Versioning
+
+The plugin version is managed in `Directory.Build.props`. When you update the version:
+
+1. Edit `Directory.Build.props` and change the `<Version>` value
+2. Commit and push to the main branch
+3. The GitHub Actions workflow will automatically:
+   - Build the plugin with the new version
+   - Create a release zip file
+   - Update `manifest.json` with the new version, checksum, and download URL
+   - Create a GitHub release
+
+The `manifest.json` is automatically maintained by the build workflow and should not be manually edited for version information.
 
 ### Project Structure
 

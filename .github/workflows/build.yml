@@ -17,6 +17,9 @@ jobs:
     
     steps:
     - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Install dependencies
       run: sudo apt-get update && sudo apt-get install -y jq xmlstarlet
@@ -60,14 +63,10 @@ jobs:
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
         git add manifest.json
-        git diff --staged --quiet || git commit -m "Update manifest.json for version ${{ steps.get_version.outputs.VERSION }}"
-    
-    - name: Push manifest changes
-      if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
-      uses: ad-m/github-push-action@master
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        branch: ${{ github.ref }}
+        if ! git diff --staged --quiet; then
+          git commit -m "Update manifest.json for version ${{ steps.get_version.outputs.VERSION }}"
+          git push
+        fi
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
