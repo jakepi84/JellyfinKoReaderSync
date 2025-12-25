@@ -21,6 +21,13 @@ namespace Jellyfin.Plugin.KoReaderSync.Services;
 /// </summary>
 public class KoReaderSyncManager : IKoReaderSyncManager
 {
+    /// <summary>
+    /// Synthetic duration for books without RunTimeTicks (1 hour in ticks).
+    /// 10,000,000 ticks = 1 second, so 36,000,000,000 ticks = 3,600 seconds = 1 hour.
+    /// This provides fine-grained progress tracking for books.
+    /// </summary>
+    private const long SyntheticBookDurationTicks = 36_000_000_000L;
+
     private readonly ILogger<KoReaderSyncManager> _logger;
     private readonly IUserDataManager _userDataManager;
     private readonly ILibraryManager _libraryManager;
@@ -335,9 +342,7 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         else
         {
             // Books don't have runtime - use synthetic duration
-            // 10,000,000 ticks = 1 second, so 36,000,000,000 ticks = 1 hour
-            // Using 1 hour as a synthetic duration for books (allows fine-grained progress tracking)
-            totalTicks = 36_000_000_000L; // 1 hour in ticks
+            totalTicks = SyntheticBookDurationTicks;
             _logger.LogDebug("Using synthetic duration for book '{ItemName}': {Ticks} ticks", item.Name, totalTicks);
         }
         
