@@ -21,6 +21,13 @@ namespace Jellyfin.Plugin.KoReaderSync.Services;
 /// </summary>
 public class KoReaderSyncManager : IKoReaderSyncManager
 {
+    /// <summary>
+    /// Synthetic duration for books without RunTimeTicks (1 hour in ticks).
+    /// Using TimeSpan.FromHours(1).Ticks provides a clear, maintainable constant.
+    /// This provides fine-grained progress tracking for books.
+    /// </summary>
+    private static readonly long SyntheticBookDurationTicks = TimeSpan.FromHours(1).Ticks;
+
     private readonly ILogger<KoReaderSyncManager> _logger;
     private readonly IUserDataManager _userDataManager;
     private readonly ILibraryManager _libraryManager;
@@ -323,11 +330,32 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         var percentage = progress.Percentage * 100;
         
         // Calculate PlaybackPositionTicks based on percentage
-        // For books/audiobooks, we estimate the position based on runtime if available
+        // For audiobooks with RunTimeTicks, use the actual runtime
+        // For books without RunTimeTicks, use a synthetic duration
+        long totalTicks;
         if (item.RunTimeTicks.HasValue && item.RunTimeTicks.Value > 0)
         {
-            userData.PlaybackPositionTicks = (long)(item.RunTimeTicks.Value * progress.Percentage);
+            // Audiobooks have actual runtime - use it
+            totalTicks = item.RunTimeTicks.Value;
+            _logger.LogDebug("Using actual RunTimeTicks for item '{ItemName}': {Ticks}", item.Name, totalTicks);
         }
+        else
+        {
+            // Books don't have runtime - use synthetic duration
+            totalTicks = SyntheticBookDurationTicks;
+            _logger.LogDebug("Using synthetic duration for book '{ItemName}': {Ticks} ticks", item.Name, totalTicks);
+        }
+        
+        // Calculate and set the playback position
+        // Use Math.Round to ensure consistent rounding behavior and avoid precision loss
+        userData.PlaybackPositionTicks = (long)Math.Round(totalTicks * progress.Percentage, MidpointRounding.AwayFromZero);
+        
+        _logger.LogDebug(
+            "Set PlaybackPositionTicks for '{ItemName}' to {Position} (of {Total} total, {Percentage}%)",
+            item.Name,
+            userData.PlaybackPositionTicks,
+            totalTicks,
+            percentage);
         
         // Set playback state based on percentage
         if (percentage >= 100)
@@ -346,9 +374,10 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         _userDataManager.SaveUserData(user, item, userData, UserDataSaveReason.UpdateUserData, System.Threading.CancellationToken.None);
         
         _logger.LogInformation(
-            "Updated Jellyfin progress for item '{ItemName}': {Percentage}% (User: {UserId})",
+            "Updated Jellyfin progress for item '{ItemName}': {Percentage}% (PlaybackPositionTicks: {Position}, User: {UserId})",
             item.Name,
             percentage,
+            userData.PlaybackPositionTicks,
             userId);
     }
 }
