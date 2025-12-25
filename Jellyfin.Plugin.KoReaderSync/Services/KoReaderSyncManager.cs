@@ -179,8 +179,9 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     /// Attempts to update Jellyfin's native progress tracking by matching the KOReader document
     /// to a Jellyfin book item. This allows progress to be visible in the Jellyfin UI.
     /// 
-    /// The method matches books by calculating the MD5 hash of the first 16KB of each book file
-    /// in the user's library and comparing it to the KOReader document hash.
+    /// The method matches books by comparing the MD5 hash of the filename (without extension)
+    /// to the KOReader document identifier. This requires users to configure KOReader to use
+    /// "Filename" as the document matching method in Progress Sync settings.
     /// </summary>
     /// <param name="userId">The user ID.</param>
     /// <param name="progress">The progress data from KOReader.</param>
@@ -219,13 +220,14 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     }
 
     /// <summary>
-    /// Finds a book item in the user's library that matches the KOReader document hash.
-    /// Searches through audiobooks and books, calculating MD5 hash of first 16KB of each file.
+    /// Finds a book item in the user's library that matches the KOReader document identifier.
+    /// Matches by comparing the MD5 hash of the filename (without path or extension) to the
+    /// document identifier sent by KOReader when using "Filename" document matching method.
     /// </summary>
     /// <param name="userId">The user ID.</param>
-    /// <param name="documentHash">The KOReader document hash (MD5 of first 16KB).</param>
+    /// <param name="documentId">The KOReader document identifier (MD5 hash of filename).</param>
     /// <returns>The matching BaseItem, or null if no match found.</returns>
-    private BaseItem? FindMatchingBookItem(Guid userId, string documentHash)
+    private BaseItem? FindMatchingBookItem(Guid userId, string documentId)
     {
         var user = _userManager.GetUserById(userId);
         if (user == null)
@@ -243,8 +245,8 @@ public class KoReaderSyncManager : IKoReaderSyncManager
 
         var items = _libraryManager.GetItemList(query);
         
-        _logger.LogDebug("Searching through {Count} book/audiobook items for document hash {Hash}", 
-            items.Count, documentHash);
+        _logger.LogDebug("Searching through {Count} book/audiobook items for document ID {DocumentId}", 
+            items.Count, documentId);
 
         foreach (var item in items)
         {
@@ -257,20 +259,20 @@ public class KoReaderSyncManager : IKoReaderSyncManager
 
             try
             {
-                // Calculate MD5 hash of first 16KB
-                var fileHash = CalculateFileHash(path);
+                // Calculate MD5 hash of filename (without path or extension)
+                var filenameHash = CalculateFilenameHash(path);
                 
-                _logger.LogTrace("Item: {Name}, Path: {Path}, Hash: {Hash}", 
-                    item.Name, path, fileHash);
+                _logger.LogTrace("Item: {Name}, Path: {Path}, FilenameHash: {Hash}", 
+                    item.Name, path, filenameHash);
 
-                if (fileHash.Equals(documentHash, StringComparison.OrdinalIgnoreCase))
+                if (filenameHash.Equals(documentId, StringComparison.OrdinalIgnoreCase))
                 {
                     return item;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogTrace(ex, "Error calculating hash for file: {Path}", path);
+                _logger.LogTrace(ex, "Error calculating filename hash for file: {Path}", path);
             }
         }
 
@@ -278,23 +280,25 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     }
 
     /// <summary>
-    /// Calculates the MD5 hash of the first 16KB of a file.
-    /// This matches KOReader's default document hash calculation method.
+    /// Calculates the MD5 hash of a filename (without path or extension).
+    /// This matches KOReader's "Filename" document matching method.
     /// </summary>
-    /// <param name="filePath">The path to the file.</param>
-    /// <returns>The MD5 hash as a lowercase hexadecimal string.</returns>
-    private static string CalculateFileHash(string filePath)
+    /// <param name="filePath">The full path to the file.</param>
+    /// <returns>The MD5 hash of the filename as a lowercase hexadecimal string.</returns>
+    private static string CalculateFilenameHash(string filePath)
     {
-        using var stream = File.OpenRead(filePath);
+        // Get filename without path and without extension
+        var filename = Path.GetFileNameWithoutExtension(filePath);
+        
+        // Handle edge cases where filename might be null or empty
+        if (string.IsNullOrEmpty(filename))
+        {
+            return string.Empty;
+        }
+        
         using var md5 = MD5.Create();
-        
-        // Read first 16KB (16384 bytes) of the file
-        const int bufferSize = 16 * 1024;
-        var buffer = new byte[bufferSize];
-        var bytesRead = stream.Read(buffer, 0, bufferSize);
-        
-        // If file is smaller than 16KB, only hash what we read
-        var hashBytes = md5.ComputeHash(buffer, 0, bytesRead);
+        var inputBytes = Encoding.UTF8.GetBytes(filename);
+        var hashBytes = md5.ComputeHash(inputBytes);
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
     }
 

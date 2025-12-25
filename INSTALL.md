@@ -47,6 +47,7 @@
    **Sync Options:**
    - Enable **auto sync**
    - Set sync method to **on page turn** or **on book close**
+   - **IMPORTANT**: Set **document matching method** to **Filename**
 
 4. Tap **Login** to test the connection
 5. Success message should appear: "Logged in successfully"
@@ -227,7 +228,7 @@ JellyfinKoReaderSync/
 ## Contributing
 
 Contributions are welcome! Areas for contribution:
-- Book matching implementation (ISBN, file hash)
+- Additional book matching strategies (metadata, alternative identifiers)
 - Jellyfin UI integration
 - Additional authentication methods
 - Unit tests

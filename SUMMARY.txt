@@ -134,6 +134,7 @@ Password: [Your Jellyfin password]
 Settings:
   ✓ Enable auto sync
   ✓ Sync method: on page turn or on book close
+  ✓ Document matching method: Filename (REQUIRED)
   ✓ Test connection with Login button
 
 ================================================================================
@@ -151,8 +152,7 @@ FEATURES & CAPABILITIES
   - Secure communication
 
 📋 FUTURE ENHANCEMENTS
-  - Book matching by ISBN
-  - Progress visibility in Jellyfin UI
+  - Additional book matching methods (metadata, alternative identifiers)
   - Configuration via web interface
   - Sync statistics and history
   - Alternative authentication methods
@@ -230,7 +230,7 @@ production use. All requirements from the problem statement have been met:
 ✅ Creates an endpoint in Jellyfin to sync book progress with KOReader
 ✅ Compatible with KOReader Progress Sync functionality
 ✅ Uses Jellyfin username and password for authentication
-✅ Verifies book identity (framework in place, ISBN matching planned)
+✅ Verifies book identity by filename matching (requires KOReader filename mode)
 ✅ Resolves sync conflicts (furthest progress wins)
 ✅ Thoroughly commented code
 ✅ Comprehensive README with KOReader setup instructions

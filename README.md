@@ -7,7 +7,7 @@ A Jellyfin plugin that enables seamless reading progress synchronization between
 - ✅ **KOReader Progress Sync API Compatible**: Implements the KOReader sync server API specification
 - ✅ **Jellyfin Native Authentication**: Uses your existing Jellyfin username and password
 - ✅ **Automatic Conflict Resolution**: Keeps the furthest reading progress when conflicts occur
-- ✅ **Book Matching by ISBN**: Attempts to match books between KOReader and Jellyfin using ISBN metadata
+- ✅ **Book Matching by Filename**: Matches books between KOReader and Jellyfin using filename-based identification
 - ✅ **Multi-Device Support**: Sync progress across multiple KOReader devices
 - ✅ **Privacy Focused**: Stores only progress data (percentage, position), no file content
 
@@ -70,8 +70,15 @@ A Jellyfin plugin that enables seamless reading progress synchronization between
 - **Enable sync**: Toggle ON
 - **Sync method**: Select **on page turn** or **on book close** (recommended)
 - **Prompt before syncing**: Optional (your preference)
+- **Document matching method**: Select **Filename** (REQUIRED for Jellyfin integration)
 
 ### Important Notes
+
+⚠️ **Document Matching Requirement:**
+- **You MUST set the "Document matching method" to "Filename" in KOReader's Progress Sync settings**
+- This ensures that books can be properly matched between KOReader and Jellyfin
+- Without this setting, progress will still sync between KOReader devices but won't appear in Jellyfin UI
+- To configure: KOReader → Tools → Progress sync → Document matching method → **Filename**
 
 ⚠️ **Authentication Requirements:**
 - The plugin requires KOReader custom headers (`x-auth-user`, `x-auth-key`)
@@ -131,11 +138,13 @@ curl -X GET \
 
 ## Book Matching
 
-The plugin attempts to match books between KOReader and Jellyfin using:
+The plugin matches books between KOReader and Jellyfin using filename-based identification:
 
-1. **ISBN** - Primary method (most reliable)
-2. **File hash** - Future enhancement
-3. **Metadata matching** - Future enhancement
+1. **Filename Matching** - Books are matched by comparing the MD5 hash of the filename (without extension)
+   - **REQUIRED**: Configure KOReader to use "Filename" as the document matching method
+   - The plugin calculates the MD5 hash of each book's filename in your Jellyfin library
+   - This hash is compared to the document identifier sent by KOReader
+   - Files must have the same name (excluding extension) in both KOReader and Jellyfin
 
 When a book is successfully matched:
 - Progress is visible in the Jellyfin UI
@@ -145,6 +154,7 @@ When a book is successfully matched:
 When a book cannot be matched:
 - Progress is still stored and synced between KOReader devices
 - Progress won't be visible in the Jellyfin UI
+- This usually happens if filenames don't match or document matching method is incorrect
 
 ## Conflict Resolution
 
@@ -230,10 +240,11 @@ Each progress file contains:
 **Problem**: Reading progress not visible in Jellyfin UI
 
 **Solutions:**
-- This is expected if the book cannot be matched by ISBN
-- Verify your book files have ISBN metadata
+- Verify you have set "Document matching method" to "Filename" in KOReader (Tools → Progress sync)
+- Ensure the book filename in KOReader matches the filename in Jellyfin (excluding extension)
+- Example: "Abaddon's Gate.epub" in KOReader should match "Abaddon's Gate.epub" in Jellyfin
 - Progress is still synced between KOReader devices even without Jellyfin UI visibility
-- Future versions may support additional matching methods
+- Check Jellyfin logs for matching attempts
 
 ## Development
 
@@ -293,7 +304,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ### Areas for Contribution
 
-- Additional book matching strategies (file hash, metadata)
+- Additional book matching strategies (metadata, alternative identifiers)
 - Enhanced conflict resolution options
 - Web-based configuration UI
 - Support for additional e-reader sync protocols
