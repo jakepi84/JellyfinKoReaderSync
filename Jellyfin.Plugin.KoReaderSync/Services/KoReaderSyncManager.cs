@@ -298,8 +298,8 @@ public class KoReaderSyncManager : IKoReaderSyncManager
             {
                 // Calculate possible MD5 hashes for this file
                 // KOReader's "Filename" method uses the full path on device, but we don't know that path
-                // So we try multiple matching strategies: binary hash, filename variations, item name
-                var possibleHashes = CalculatePossibleFilenameHashes(path, item.Name);
+                // So we try multiple matching strategies: binary hash, filename variations, item name, item ID
+                var possibleHashes = CalculatePossibleFilenameHashes(path, item.Name, item.Id);
                 
                 checkedCount++;
                 // Log first 5 items at INFO level to help troubleshooting
@@ -353,12 +353,14 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     /// - Binary: MD5 of first 16KB of file content (matches KOReader's default "Binary" method)
     /// - Filename variations: with extension, without extension, full path
     /// - Item name (title from metadata)
+    /// - Item ID variations: for OPDS-downloaded files that may use item IDs in filenames
     /// - Normalized variations: handling spaces, hyphens, etc.
     /// </summary>
     /// <param name="filePath">The full path to the file in Jellyfin.</param>
     /// <param name="itemName">The item name from Jellyfin metadata (optional).</param>
+    /// <param name="itemId">The Jellyfin item ID (optional).</param>
     /// <returns>A list of possible MD5 hashes.</returns>
-    private static List<string> CalculatePossibleFilenameHashes(string filePath, string? itemName = null)
+    private static List<string> CalculatePossibleFilenameHashes(string filePath, string? itemName = null, Guid? itemId = null)
     {
         var hashes = new List<string>();
         
@@ -431,6 +433,28 @@ public class KoReaderSyncManager : IKoReaderSyncManager
             {
                 hashes.Add(CalculateHash(normalized + ".epub"));
                 hashes.Add(CalculateHash(normalized));
+            }
+        }
+        
+        // 6. Item ID variations (for OPDS-downloaded books)
+        // OPDS may download files with item ID-based filenames
+        if (itemId.HasValue && itemId.Value != Guid.Empty)
+        {
+            var itemIdHex = itemId.Value.ToString("N"); // 32-char hex format without hyphens
+            var itemIdFormatted = itemId.Value.ToString("D"); // Standard GUID format with hyphens
+            
+            // Try item ID as filename (with and without extension)
+            hashes.Add(CalculateHash(itemIdHex + ".epub"));
+            hashes.Add(CalculateHash(itemIdHex));
+            hashes.Add(CalculateHash(itemIdFormatted + ".epub"));
+            hashes.Add(CalculateHash(itemIdFormatted));
+            
+            // Try with common device paths
+            var commonPaths = new[] { "/mnt/onboard/", "/mnt/us/documents/", "/storage/emulated/0/" };
+            foreach (var basePath in commonPaths)
+            {
+                hashes.Add(CalculateHash(basePath + itemIdHex + ".epub"));
+                hashes.Add(CalculateHash(basePath + itemIdFormatted + ".epub"));
             }
         }
         
