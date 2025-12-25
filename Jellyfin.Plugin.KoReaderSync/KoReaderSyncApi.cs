@@ -295,10 +295,7 @@ public class KoReaderSyncApi : ControllerBase
         // aware that anyone with network access who knows a username can access that user's sync data.
         // For enhanced security, configure KOReader to send Basic Authentication headers.
         _logger.LogDebug("Attempting authentication with KOReader headers only for user {User}", authUser);
-        
-        var authKeyStr = authKey.ToString();
-        _logger.LogInformation("Authentication mode: KOReader headers only (password hash not validated, x-auth-key: {KeyPrefix}...)", 
-            authKeyStr.Length > 8 ? authKeyStr.Substring(0, 8) : authKeyStr);
+        _logger.LogInformation("Authentication mode: KOReader headers only (password hash not validated)");
         
         var jellyfinUser = _userManager.GetUserByName(authUser!);
         if (jellyfinUser == null)
