@@ -265,9 +265,23 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         
         _logger.LogInformation(
             "Searching through {Count} book/audiobook items for document ID \"{DocumentId}\". " +
-            "Trying multiple matching strategies including binary hash (MD5 of first 16KB), " +
+            "Trying multiple matching strategies including direct item ID match, binary hash (MD5 of first 16KB), " +
             "filename variations, item names, and normalized text variations.",
             items.Count, documentId);
+
+        // First, try direct item ID match (for OPDS-downloaded books)
+        // OPDS may save books with filenames based on item IDs, and KOReader may use those IDs directly
+        if (TryParseItemId(documentId, out var parsedItemId))
+        {
+            var directMatch = items.FirstOrDefault(item => item.Id == parsedItemId);
+            if (directMatch != null)
+            {
+                _logger.LogInformation(
+                    "✓ MATCHED! Document {DocumentId} directly to item '{Name}' (ID: {ItemId}) using direct item ID match",
+                    documentId, directMatch.Name, directMatch.Id);
+                return directMatch;
+            }
+        }
 
         var checkedCount = 0;
         foreach (var item in items)
@@ -457,6 +471,60 @@ public class KoReaderSyncManager : IKoReaderSyncManager
                       .Replace("\uFEFF", "", StringComparison.Ordinal);  // ZERO WIDTH NO-BREAK SPACE
         
         return result;
+    }
+    
+    /// <summary>
+    /// Tries to parse a document ID as a Jellyfin item ID.
+    /// OPDS-downloaded books may use the Jellyfin item ID as the document identifier.
+    /// Handles both hyphenated GUID format and 32-character hex format (without hyphens).
+    /// </summary>
+    /// <param name="documentId">The document ID to parse.</param>
+    /// <param name="itemId">The parsed item ID if successful.</param>
+    /// <returns>True if the document ID could be parsed as a valid item ID; otherwise, false.</returns>
+    private static bool TryParseItemId(string documentId, out Guid itemId)
+    {
+        itemId = Guid.Empty;
+        
+        if (string.IsNullOrEmpty(documentId))
+        {
+            return false;
+        }
+        
+        // Try parsing as-is (might have hyphens)
+        if (Guid.TryParse(documentId, out itemId))
+        {
+            return true;
+        }
+        
+        // Try parsing as 32-character hex string (GUID without hyphens)
+        // Format: 8-4-4-4-12 characters with hyphens inserted
+        if (documentId.Length == 32 && IsHexString(documentId))
+        {
+            var formattedGuid = $"{documentId.Substring(0, 8)}-{documentId.Substring(8, 4)}-{documentId.Substring(12, 4)}-{documentId.Substring(16, 4)}-{documentId.Substring(20, 12)}";
+            if (Guid.TryParse(formattedGuid, out itemId))
+            {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /// <summary>
+    /// Checks if a string contains only hexadecimal characters (0-9, a-f, A-F).
+    /// </summary>
+    /// <param name="value">The string to check.</param>
+    /// <returns>True if the string contains only hex characters; otherwise, false.</returns>
+    private static bool IsHexString(string value)
+    {
+        foreach (var c in value)
+        {
+            if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')))
+            {
+                return false;
+            }
+        }
+        return true;
     }
     
     /// <summary>
