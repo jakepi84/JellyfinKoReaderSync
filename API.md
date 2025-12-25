@@ -246,8 +246,17 @@ When the same book is updated from multiple devices:
 ### Document Identifier
 
 The document ID is an MD5 hash calculated by KOReader:
-- **BINARY method** (default): MD5 of the first 16KB of the file
-- **FILENAME method**: MD5 of the filename
+- **BINARY method** (default): MD5 of the first 16KB of the file content
+- **FILENAME method**: MD5 of the full file path on device
+
+**Plugin Matching:**
+The Jellyfin plugin supports both methods and automatically tries multiple strategies:
+1. Binary hash (MD5 of first 16KB) - matches KOReader's default
+2. Filename with extension 
+3. Filename without extension
+4. Full Jellyfin path
+
+This ensures maximum compatibility regardless of which method KOReader is configured to use.
 
 ### Percentage Format
 
@@ -315,8 +324,11 @@ In KOReader, configure the sync server with:
 - **Server:** `http://your-jellyfin-server:8096/plugins/koreader/v1`
 - **Username:** Your Jellyfin username
 - **Password:** Your Jellyfin password
+- **Document matching method:** Leave as **Binary** (default) for best compatibility
 
 KOReader will automatically:
 - Calculate MD5 hash of your password for the `x-auth-key` header
-- Generate the document identifier
+- Generate the document identifier using the configured method
 - Send both custom headers and basic auth
+
+**Note:** The plugin works with KOReader's default settings. No configuration changes are required for basic functionality.
