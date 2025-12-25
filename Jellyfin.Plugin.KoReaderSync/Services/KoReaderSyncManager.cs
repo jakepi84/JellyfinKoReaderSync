@@ -36,6 +36,12 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     /// </summary>
     private const int BinaryHashBufferSize = 16 * 1024;
 
+    /// <summary>
+    /// Common device paths where OPDS-downloaded files might be saved on e-reader devices.
+    /// Used for generating filename hash variations.
+    /// </summary>
+    private static readonly string[] CommonDevicePaths = { "/mnt/onboard/", "/mnt/us/documents/", "/storage/emulated/0/" };
+
     private readonly ILogger<KoReaderSyncManager> _logger;
     private readonly IUserDataManager _userDataManager;
     private readonly ILibraryManager _libraryManager;
@@ -450,8 +456,7 @@ public class KoReaderSyncManager : IKoReaderSyncManager
             hashes.Add(CalculateHash(itemIdFormatted));
             
             // Try with common device paths
-            var commonPaths = new[] { "/mnt/onboard/", "/mnt/us/documents/", "/storage/emulated/0/" };
-            foreach (var basePath in commonPaths)
+            foreach (var basePath in CommonDevicePaths)
             {
                 hashes.Add(CalculateHash(basePath + itemIdHex + ".epub"));
                 hashes.Add(CalculateHash(basePath + itemIdFormatted + ".epub"));
