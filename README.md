@@ -260,12 +260,15 @@ Each progress file contains:
 - **Recommended**: Use KOReader's default "Binary" document matching method (no configuration needed)
 - The plugin automatically tries multiple matching strategies:
   1. Binary hash (MD5 of first 16KB) - most reliable
-  2. Filename with extension
-  3. Filename without extension
+  2. Filename with extension (with normalization)
+  3. Filename without extension (with normalization)
   4. Full path
+  5. Item name variations
 - Ensure books in Jellyfin are accessible (not corrupted or missing)
+- Verify both locations have the EXACT same file (check MD5 checksums)
 - Check Jellyfin logs for matching attempts and any errors
 - Progress is always synced between KOReader devices, even if Jellyfin matching fails
+- **For detailed troubleshooting:** See [TROUBLESHOOTING-MATCHING.md](TROUBLESHOOTING-MATCHING.md)
 
 ## Development
 
