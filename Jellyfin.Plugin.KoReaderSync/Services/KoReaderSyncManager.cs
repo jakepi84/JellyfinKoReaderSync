@@ -1,11 +1,17 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.KoReaderSync.Models;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Common.Configuration;
 using Microsoft.Extensions.Logging;
+using MediaBrowser.Model.Entities;
 
 namespace Jellyfin.Plugin.KoReaderSync.Services;
 
@@ -18,6 +24,7 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     private readonly ILogger<KoReaderSyncManager> _logger;
     private readonly IUserDataManager _userDataManager;
     private readonly ILibraryManager _libraryManager;
+    private readonly IUserManager _userManager;
     private readonly string _dataPath;
     private readonly IApplicationPaths _applicationPaths;
 
@@ -28,16 +35,19 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     /// <param name="userDataManager">The user data manager.</param>
     /// <param name="libraryManager">The library manager.</param>
     /// <param name="applicationPaths">The Jellyfin application paths provider.</param>
+    /// <param name="userManager">The user manager.</param>
     public KoReaderSyncManager(
         ILogger<KoReaderSyncManager> logger,
         IUserDataManager userDataManager,
         ILibraryManager libraryManager,
-        IApplicationPaths applicationPaths)
+        IApplicationPaths applicationPaths,
+        IUserManager userManager)
     {
         _logger = logger;
         _userDataManager = userDataManager;
         _libraryManager = libraryManager;
         _applicationPaths = applicationPaths;
+        _userManager = userManager;
 
         // Store progress data under Jellyfin's plugin configurations path (writable across OSes)
         _dataPath = Path.Combine(_applicationPaths.PluginConfigurationsPath, "KoReaderSync");
@@ -169,23 +179,172 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     /// Attempts to update Jellyfin's native progress tracking by matching the KOReader document
     /// to a Jellyfin book item. This allows progress to be visible in the Jellyfin UI.
     /// 
-    /// Note: This is a placeholder for future enhancement. Currently, KOReader progress is stored
-    /// independently and can be synced across KOReader devices. Matching books to Jellyfin items
-    /// and updating Jellyfin's native progress tracking would require additional implementation.
+    /// The method matches books by calculating the MD5 hash of the first 16KB of each book file
+    /// in the user's library and comparing it to the KOReader document hash.
     /// </summary>
     /// <param name="userId">The user ID.</param>
     /// <param name="progress">The progress data from KOReader.</param>
     private void TryUpdateJellyfinProgress(Guid userId, ProgressDto progress)
     {
-        // TODO: Implement book matching and Jellyfin progress update
-        // This would require:
-        // 1. Matching KOReader document hash to Jellyfin book items (by ISBN, file hash, etc.)
-        // 2. Getting the User object from userId
-        // 3. Updating the UserItemData with progress information
-        // 4. Saving the updated data
+        try
+        {
+            _logger.LogDebug(
+                "Attempting to match KOReader document {Document} to Jellyfin library item",
+                progress.Document);
+
+            // Find the matching book in the user's library
+            var matchingItem = FindMatchingBookItem(userId, progress.Document);
+            
+            if (matchingItem == null)
+            {
+                _logger.LogDebug(
+                    "No matching Jellyfin item found for document {Document}. Progress will still sync between KOReader devices.",
+                    progress.Document);
+                return;
+            }
+
+            _logger.LogInformation(
+                "Matched document {Document} to Jellyfin item: {ItemName} (ID: {ItemId})",
+                progress.Document,
+                matchingItem.Name,
+                matchingItem.Id);
+
+            // Update the user's progress in Jellyfin
+            UpdateJellyfinUserData(userId, matchingItem, progress);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating Jellyfin progress for document {Document}", progress.Document);
+        }
+    }
+
+    /// <summary>
+    /// Finds a book item in the user's library that matches the KOReader document hash.
+    /// Searches through audiobooks and books, calculating MD5 hash of first 16KB of each file.
+    /// </summary>
+    /// <param name="userId">The user ID.</param>
+    /// <param name="documentHash">The KOReader document hash (MD5 of first 16KB).</param>
+    /// <returns>The matching BaseItem, or null if no match found.</returns>
+    private BaseItem? FindMatchingBookItem(Guid userId, string documentHash)
+    {
+        var user = _userManager.GetUserById(userId);
+        if (user == null)
+        {
+            _logger.LogWarning("User {UserId} not found", userId);
+            return null;
+        }
+
+        // Query for all audiobooks and books in the user's library
+        var query = new InternalItemsQuery(user)
+        {
+            IncludeItemTypes = new[] { BaseItemKind.AudioBook, BaseItemKind.Book },
+            Recursive = true
+        };
+
+        var items = _libraryManager.GetItemList(query);
         
-        _logger.LogDebug(
-            "Jellyfin native progress update not yet implemented for document {Document}",
-            progress.Document);
+        _logger.LogDebug("Searching through {Count} book/audiobook items for document hash {Hash}", 
+            items.Count, documentHash);
+
+        foreach (var item in items)
+        {
+            // Get the file path for the item
+            var path = item.Path;
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            {
+                continue;
+            }
+
+            try
+            {
+                // Calculate MD5 hash of first 16KB
+                var fileHash = CalculateFileHash(path);
+                
+                _logger.LogTrace("Item: {Name}, Path: {Path}, Hash: {Hash}", 
+                    item.Name, path, fileHash);
+
+                if (fileHash.Equals(documentHash, StringComparison.OrdinalIgnoreCase))
+                {
+                    return item;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogTrace(ex, "Error calculating hash for file: {Path}", path);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Calculates the MD5 hash of the first 16KB of a file.
+    /// This matches KOReader's default document hash calculation method.
+    /// </summary>
+    /// <param name="filePath">The path to the file.</param>
+    /// <returns>The MD5 hash as a lowercase hexadecimal string.</returns>
+    private static string CalculateFileHash(string filePath)
+    {
+        using var stream = File.OpenRead(filePath);
+        using var md5 = MD5.Create();
+        
+        // Read first 16KB (16384 bytes) of the file
+        const int bufferSize = 16 * 1024;
+        var buffer = new byte[bufferSize];
+        var bytesRead = stream.Read(buffer, 0, bufferSize);
+        
+        // If file is smaller than 16KB, only hash what we read
+        var hashBytes = md5.ComputeHash(buffer, 0, bytesRead);
+        return Convert.ToHexString(hashBytes).ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Updates Jellyfin's UserItemData with reading progress from KOReader.
+    /// </summary>
+    /// <param name="userId">The user ID.</param>
+    /// <param name="item">The book item.</param>
+    /// <param name="progress">The progress data from KOReader.</param>
+    private void UpdateJellyfinUserData(Guid userId, BaseItem item, ProgressDto progress)
+    {
+        var user = _userManager.GetUserById(userId);
+        if (user == null)
+        {
+            _logger.LogWarning("User {UserId} not found", userId);
+            return;
+        }
+
+        var userData = _userDataManager.GetUserData(user, item);
+        
+        // Update the percentage  
+        var percentage = progress.Percentage * 100;
+        
+        // Calculate PlaybackPositionTicks based on percentage
+        // For books/audiobooks, we estimate the position based on runtime if available
+        if (item.RunTimeTicks.HasValue && item.RunTimeTicks.Value > 0)
+        {
+            userData.PlaybackPositionTicks = (long)(item.RunTimeTicks.Value * progress.Percentage);
+        }
+        
+        // Set playback state based on percentage
+        if (percentage >= 100)
+        {
+            userData.Played = true;
+        }
+        else if (percentage > 0)
+        {
+            userData.Played = false;
+        }
+        
+        // Update last played date
+        userData.LastPlayedDate = DateTime.UtcNow;
+        
+        // Save the updated user data
+        _userDataManager.SaveUserData(user, item, userData, UserDataSaveReason.UpdateUserData, System.Threading.CancellationToken.None);
+        
+        _logger.LogInformation(
+            "Updated Jellyfin progress for item '{ItemName}': {Percentage}% (User: {UserId})",
+            item.Name,
+            percentage,
+            userId);
     }
 }
