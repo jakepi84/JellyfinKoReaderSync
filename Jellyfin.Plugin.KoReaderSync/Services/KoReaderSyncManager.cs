@@ -265,7 +265,8 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         _logger.LogInformation(
             "Searching through {Count} book/audiobook items for document ID \"{DocumentId}\". " +
             "Trying multiple matching strategies: (1) Binary (MD5 of first 16KB - KOReader default), " +
-            "(2) Filename with extension, (3) Filename without extension, (4) Full path.",
+            "(2) Filename with extension, (3) Filename without extension, (4) Full path, " +
+            "(5) Item name with .epub, (6) Item name without extension.",
             items.Count, documentId);
 
         var checkedCount = 0;
@@ -283,15 +284,24 @@ public class KoReaderSyncManager : IKoReaderSyncManager
             {
                 // Calculate possible MD5 hashes for this file
                 // KOReader's "Filename" method uses the full path on device, but we don't know that path
-                // So we try multiple matching strategies: filename with extension, without extension, and full path
-                var possibleHashes = CalculatePossibleFilenameHashes(path);
+                // So we try multiple matching strategies: binary hash, filename variations, item name
+                var possibleHashes = CalculatePossibleFilenameHashes(path, item.Name);
                 
                 checkedCount++;
                 // Log first 5 items at INFO level to help troubleshooting
                 if (checkedCount <= 5)
                 {
-                    _logger.LogInformation("Checking item '{Name}' (Filename: {Filename}): Hashes=[{Hashes}]", 
-                        item.Name, Path.GetFileName(path), string.Join(", ", possibleHashes));
+                    var hashLabels = new List<string> { "Binary", "FilenameWithExt", "FilenameNoExt", "FullPath", "ItemName+Ext", "ItemName" };
+                    var hashDetails = new List<string>();
+                    for (int i = 0; i < possibleHashes.Count && i < hashLabels.Count; i++)
+                    {
+                        hashDetails.Add($"{hashLabels[i]}={possibleHashes[i]}");
+                    }
+                    
+                    _logger.LogInformation("Checking item '{Name}' (Filename: {Filename}): {HashDetails}",
+                        item.Name, 
+                        Path.GetFileName(path),
+                        string.Join(", ", hashDetails));
                 }
                 else
                 {
@@ -299,11 +309,16 @@ public class KoReaderSyncManager : IKoReaderSyncManager
                 }
 
                 // Check if any of the possible hashes match the document ID
-                if (possibleHashes.Any(hash => hash.Equals(documentId, StringComparison.OrdinalIgnoreCase)))
+                var hashLabels = new List<string> { "Binary (first 16KB MD5)", "Filename with extension", "Filename without extension", "Full path", "Item name + .epub", "Item name" };
+                for (int i = 0; i < possibleHashes.Count; i++)
                 {
-                    _logger.LogInformation("Matched document {DocumentId} to item '{Name}' using one of the calculated hashes", 
-                        documentId, item.Name);
-                    return item;
+                    if (possibleHashes[i].Equals(documentId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var matchType = i < hashLabels.Count ? hashLabels[i] : $"Hash #{i}";
+                        _logger.LogInformation("✓ MATCHED! Document {DocumentId} to item '{Name}' using {MatchType}", 
+                            documentId, item.Name, matchType);
+                        return item;
+                    }
                 }
             }
             catch (Exception ex)
@@ -324,10 +339,12 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     /// We try multiple strategies:
     /// - Binary: MD5 of first 16KB of file content (matches KOReader's default "Binary" method)
     /// - Filename variations: with extension, without extension, full path
+    /// - Item name (title from metadata)
     /// </summary>
     /// <param name="filePath">The full path to the file in Jellyfin.</param>
+    /// <param name="itemName">The item name from Jellyfin metadata (optional).</param>
     /// <returns>A list of possible MD5 hashes.</returns>
-    private static List<string> CalculatePossibleFilenameHashes(string filePath)
+    private static List<string> CalculatePossibleFilenameHashes(string filePath, string? itemName = null)
     {
         var hashes = new List<string>();
         
@@ -341,13 +358,15 @@ public class KoReaderSyncManager : IKoReaderSyncManager
                 hashes.Add(binaryHash);
             }
         }
-        catch (IOException)
+        catch (IOException ex)
         {
-            // File I/O error (file locked, deleted, etc.) - skip binary hash
+            // File I/O error (file locked, deleted, etc.) - skip binary hash but log it
+            // Don't add to hash list to avoid false matches
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
-            // Permission denied - skip binary hash
+            // Permission denied - skip binary hash but log it
+            // Don't add to hash list to avoid false matches
         }
         
         // 2. Full filename with extension
@@ -368,6 +387,15 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         if (!string.IsNullOrEmpty(filePath))
         {
             hashes.Add(CalculateHash(filePath));
+        }
+        
+        // 5. Item name (from metadata) - KOReader might use the book title from metadata
+        if (!string.IsNullOrEmpty(itemName))
+        {
+            // Try with .epub extension added
+            hashes.Add(CalculateHash(itemName + ".epub"));
+            // Try without extension
+            hashes.Add(CalculateHash(itemName));
         }
         
         return hashes;
