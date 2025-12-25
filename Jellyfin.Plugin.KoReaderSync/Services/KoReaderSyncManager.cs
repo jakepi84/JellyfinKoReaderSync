@@ -205,8 +205,9 @@ public class KoReaderSyncManager : IKoReaderSyncManager
             
             if (matchingItem == null)
             {
-                _logger.LogDebug(
-                    "No matching Jellyfin item found for document {Document}. Progress will still sync between KOReader devices.",
+                _logger.LogInformation(
+                    "No matching Jellyfin item found for document {Document}. Progress will still sync between KOReader devices. " +
+                    "Ensure KOReader is configured to use 'Filename' as document matching method and the book filename matches.",
                     progress.Document);
                 return;
             }
@@ -252,15 +253,17 @@ public class KoReaderSyncManager : IKoReaderSyncManager
 
         var items = _libraryManager.GetItemList(query);
         
-        _logger.LogDebug("Searching through {Count} book/audiobook items for document ID {DocumentId}", 
+        _logger.LogInformation("Searching through {Count} book/audiobook items for document ID {DocumentId}", 
             items.Count, documentId);
 
+        var checkedCount = 0;
         foreach (var item in items)
         {
             // Get the file path for the item
             var path = item.Path;
             if (string.IsNullOrEmpty(path) || !File.Exists(path))
             {
+                _logger.LogTrace("Skipping item {Name}: no valid file path", item.Name);
                 continue;
             }
 
@@ -269,8 +272,17 @@ public class KoReaderSyncManager : IKoReaderSyncManager
                 // Calculate MD5 hash of filename (without path or extension)
                 var filenameHash = CalculateFilenameHash(path);
                 
-                _logger.LogTrace("Item: {Name}, Path: {Path}, FilenameHash: {Hash}", 
-                    item.Name, path, filenameHash);
+                checkedCount++;
+                // Log first 5 items at INFO level to help troubleshooting
+                if (checkedCount <= 5)
+                {
+                    _logger.LogInformation("Checking item '{Name}' (Filename: {Filename}): Hash={Hash}", 
+                        item.Name, Path.GetFileNameWithoutExtension(path), filenameHash);
+                }
+                else
+                {
+                    _logger.LogDebug("Checking item '{Name}': Hash={Hash}", item.Name, filenameHash);
+                }
 
                 if (filenameHash.Equals(documentId, StringComparison.OrdinalIgnoreCase))
                 {
