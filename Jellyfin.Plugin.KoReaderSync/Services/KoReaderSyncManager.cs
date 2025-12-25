@@ -28,6 +28,13 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     /// </summary>
     private static readonly long SyntheticBookDurationTicks = TimeSpan.FromHours(1).Ticks;
 
+    /// <summary>
+    /// Buffer size for calculating binary hash (16KB).
+    /// This matches KOReader's "Binary" document matching method which uses
+    /// the MD5 hash of the first 16KB of file content.
+    /// </summary>
+    private const int BinaryHashBufferSize = 16 * 1024;
+
     private readonly ILogger<KoReaderSyncManager> _logger;
     private readonly IUserDataManager _userDataManager;
     private readonly ILibraryManager _libraryManager;
@@ -334,9 +341,13 @@ public class KoReaderSyncManager : IKoReaderSyncManager
                 hashes.Add(binaryHash);
             }
         }
-        catch (Exception)
+        catch (IOException)
         {
-            // If we can't read the file, skip binary hash
+            // File I/O error (file locked, deleted, etc.) - skip binary hash
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Permission denied - skip binary hash
         }
         
         // 2. Full filename with extension
@@ -368,6 +379,8 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     /// </summary>
     /// <param name="filePath">The full path to the file.</param>
     /// <returns>The MD5 hash as a lowercase hexadecimal string, or empty string on error.</returns>
+    /// <exception cref="IOException">Thrown when file cannot be read due to I/O error.</exception>
+    /// <exception cref="UnauthorizedAccessException">Thrown when access to file is denied.</exception>
     private static string CalculateBinaryHash(string filePath)
     {
         if (!File.Exists(filePath))
@@ -375,11 +388,12 @@ public class KoReaderSyncManager : IKoReaderSyncManager
             return string.Empty;
         }
         
-        const int bufferSize = 16 * 1024; // 16KB - matches KOReader's binary method
-        var buffer = new byte[bufferSize];
+        var buffer = new byte[BinaryHashBufferSize];
         
+        // File operations can fail between existence check and open due to concurrent access
+        // Let exceptions propagate to caller for proper handling
         using var fileStream = File.OpenRead(filePath);
-        var bytesRead = fileStream.Read(buffer, 0, bufferSize);
+        var bytesRead = fileStream.Read(buffer, 0, BinaryHashBufferSize);
         
         if (bytesRead == 0)
         {
