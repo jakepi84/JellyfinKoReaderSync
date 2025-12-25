@@ -7,18 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- **BREAKING**: Refactored book identification to use filename-based matching
-- Users must now set "Document matching method" to "Filename" in KOReader Progress Sync settings
-- Book matching now uses MD5 hash of filename (without extension) instead of file content hash
-- Updated documentation to require filename matching configuration
+### Added
+- **Binary matching support**: Plugin now calculates MD5 hash of first 16KB of file content to match KOReader's default "Binary" method
+- Multi-strategy book matching: Tries binary hash, filename with extension, filename without extension, and full path
+- Works with KOReader's default settings - no configuration changes required
+- Enhanced logging to show all matching strategies being attempted
 
-### Removed
-- Removed ISBN-based matching references from documentation
-- Removed file content hash calculation method
+### Changed
+- **BREAKING REVERT**: No longer requires "Filename" document matching method in KOReader
+- Book matching now supports both "Binary" (default) and "Filename" KOReader methods
+- Improved error messages to guide users on which matching method to use
+- Better exception handling for file access operations
 
 ### Fixed
-- Book matching now works reliably when KOReader is configured with filename document matching
+- Fixed search only iterating through first 5 books instead of entire library (added `Limit = null` to query)
+- Book matching now works reliably with KOReader's default "Binary" method
+- More robust file hash calculation with proper exception handling
 
 ## [1.0.0] - 2024-12-23
 
