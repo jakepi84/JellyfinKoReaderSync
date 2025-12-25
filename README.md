@@ -7,7 +7,7 @@ A Jellyfin plugin that enables seamless reading progress synchronization between
 - ✅ **KOReader Progress Sync API Compatible**: Implements the KOReader sync server API specification
 - ✅ **Jellyfin Native Authentication**: Uses your existing Jellyfin username and password
 - ✅ **Automatic Conflict Resolution**: Keeps the furthest reading progress when conflicts occur
-- ✅ **Smart Book Matching**: Supports both Binary (file content) and Filename matching methods
+- ✅ **Smart Book Matching**: Uses Binary matching method (MD5 of first 16KB) with multiple fallback strategies
 - ✅ **Works with KOReader Defaults**: No configuration changes needed in KOReader
 - ✅ **Multi-Device Support**: Sync progress across multiple KOReader devices
 - ✅ **Privacy Focused**: Stores only progress data (percentage, position), no file content
@@ -76,11 +76,12 @@ A Jellyfin plugin that enables seamless reading progress synchronization between
 ### Important Notes
 
 ⚠️ **Document Matching Method:**
-- **The plugin works with KOReader's default "Binary" method** - no configuration needed!
-- KOReader's "Binary" method (default) uses MD5 of first 16KB of file content - most reliable
-- Alternatively, you can use "Filename" method, but this requires exact filename matches
-- Progress will always sync between KOReader devices regardless of which method you use
+- **Use KOReader's default "Binary" method** - recommended and fully supported!
+- Binary method uses MD5 of first 16KB of file content - most reliable and path-independent
+- Works automatically with no configuration needed
+- Progress will always sync between KOReader devices regardless of matching
 - Matching with Jellyfin determines whether progress appears in the Jellyfin UI
+- For troubleshooting matching issues, see [TROUBLESHOOTING-MATCHING.md](TROUBLESHOOTING-MATCHING.md)
 
 ⚠️ **Authentication Requirements:**
 - The plugin requires KOReader custom headers (`x-auth-user`, `x-auth-key`)
@@ -140,7 +141,7 @@ curl -X GET \
 
 ## Book Matching
 
-The plugin uses intelligent matching to identify books between KOReader and Jellyfin. It supports both of KOReader's document matching methods:
+The plugin uses intelligent matching to identify books between KOReader and Jellyfin using KOReader's document matching methods:
 
 ### Binary Method (Recommended - Default)
 
@@ -149,17 +150,19 @@ KOReader's default "Binary" method uses MD5 hash of the first 16KB of file conte
 - ✅ Matches books even if renamed
 - ✅ No configuration changes needed in KOReader
 - ✅ Consistent across all devices
+- ✅ Path-independent and portable
 
 The plugin automatically calculates the binary hash for all books in your Jellyfin library and matches them against KOReader's document ID.
 
-### Filename Method (Alternative)
+### Multiple Matching Strategies
 
-KOReader's "Filename" method uses MD5 hash of the full file path on device. The plugin will try to match using:
-- Filename with extension (e.g., "book.epub")
-- Filename without extension (e.g., "book")
-- Full Jellyfin path
+To maximize compatibility, the plugin tries multiple matching strategies automatically:
+1. **Binary hash** (MD5 of first 16KB) - primary method
+2. **Filename variations** (with/without extension)
+3. **Item name variations** (from metadata)
+4. **Normalized text** (handles special characters, spaces, different dash types)
 
-**Note**: Filename matching is less reliable because the file path on your KOReader device differs from Jellyfin's path.
+This multi-strategy approach works with both KOReader's Binary and Filename matching methods, though Binary is recommended.
 
 ### Matching Results
 
@@ -172,6 +175,7 @@ When a book cannot be matched:
 - ⚠️ Progress is still stored and synced between KOReader devices
 - ⚠️ Progress won't be visible in the Jellyfin UI
 - 💡 Use KOReader's default "Binary" method for best results
+- 📖 See [TROUBLESHOOTING-MATCHING.md](TROUBLESHOOTING-MATCHING.md) for detailed diagnostics
 
 ## Conflict Resolution
 
@@ -260,12 +264,15 @@ Each progress file contains:
 - **Recommended**: Use KOReader's default "Binary" document matching method (no configuration needed)
 - The plugin automatically tries multiple matching strategies:
   1. Binary hash (MD5 of first 16KB) - most reliable
-  2. Filename with extension
-  3. Filename without extension
+  2. Filename with extension (with normalization)
+  3. Filename without extension (with normalization)
   4. Full path
+  5. Item name variations
 - Ensure books in Jellyfin are accessible (not corrupted or missing)
+- Verify both locations have the EXACT same file (check MD5 checksums)
 - Check Jellyfin logs for matching attempts and any errors
 - Progress is always synced between KOReader devices, even if Jellyfin matching fails
+- **For detailed troubleshooting:** See [TROUBLESHOOTING-MATCHING.md](TROUBLESHOOTING-MATCHING.md)
 
 ## Development
 

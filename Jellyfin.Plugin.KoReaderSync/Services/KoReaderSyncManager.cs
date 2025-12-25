@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.KoReaderSync.Models;
 using MediaBrowser.Controller.Entities;
@@ -264,8 +265,8 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         
         _logger.LogInformation(
             "Searching through {Count} book/audiobook items for document ID \"{DocumentId}\". " +
-            "Trying multiple matching strategies: (1) Binary (MD5 of first 16KB - KOReader default), " +
-            "(2) Filename with extension, (3) Filename without extension, (4) Full path.",
+            "Trying multiple matching strategies including binary hash (MD5 of first 16KB), " +
+            "filename variations, item names, and normalized text variations.",
             items.Count, documentId);
 
         var checkedCount = 0;
@@ -283,27 +284,40 @@ public class KoReaderSyncManager : IKoReaderSyncManager
             {
                 // Calculate possible MD5 hashes for this file
                 // KOReader's "Filename" method uses the full path on device, but we don't know that path
-                // So we try multiple matching strategies: filename with extension, without extension, and full path
-                var possibleHashes = CalculatePossibleFilenameHashes(path);
+                // So we try multiple matching strategies: binary hash, filename variations, item name
+                var possibleHashes = CalculatePossibleFilenameHashes(path, item.Name);
                 
                 checkedCount++;
                 // Log first 5 items at INFO level to help troubleshooting
                 if (checkedCount <= 5)
                 {
-                    _logger.LogInformation("Checking item '{Name}' (Filename: {Filename}): Hashes=[{Hashes}]", 
-                        item.Name, Path.GetFileName(path), string.Join(", ", possibleHashes));
+                    // Build hash details string showing first few hashes
+                    var hashSummary = possibleHashes.Count > 0 ? 
+                        $"{possibleHashes.Count} hashes calculated: [{string.Join(", ", possibleHashes.Take(3))}{(possibleHashes.Count > 3 ? "..." : "")}]" :
+                        "No hashes calculated";
+                    
+                    _logger.LogInformation("Checking item '{Name}' (Filename: {Filename}): {HashSummary}",
+                        item.Name, 
+                        Path.GetFileName(path),
+                        hashSummary);
                 }
                 else
                 {
-                    _logger.LogDebug("Checking item '{Name}': Hashes=[{Hashes}]", item.Name, string.Join(", ", possibleHashes));
+                    _logger.LogDebug("Checking item '{Name}': {Count} hashes calculated", item.Name, possibleHashes.Count);
                 }
 
                 // Check if any of the possible hashes match the document ID
-                if (possibleHashes.Any(hash => hash.Equals(documentId, StringComparison.OrdinalIgnoreCase)))
+                for (int i = 0; i < possibleHashes.Count; i++)
                 {
-                    _logger.LogInformation("Matched document {DocumentId} to item '{Name}' using one of the calculated hashes", 
-                        documentId, item.Name);
-                    return item;
+                    if (possibleHashes[i].Equals(documentId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var matchDescription = i == 0 ? "Binary (first 16KB MD5)" : 
+                                              i < 5 ? $"Strategy #{i + 1}" :
+                                              $"Normalized variation #{i + 1 - 4}";
+                        _logger.LogInformation("✓ MATCHED! Document {DocumentId} to item '{Name}' using {MatchType}", 
+                            documentId, item.Name, matchDescription);
+                        return item;
+                    }
                 }
             }
             catch (Exception ex)
@@ -324,10 +338,13 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     /// We try multiple strategies:
     /// - Binary: MD5 of first 16KB of file content (matches KOReader's default "Binary" method)
     /// - Filename variations: with extension, without extension, full path
+    /// - Item name (title from metadata)
+    /// - Normalized variations: handling spaces, hyphens, etc.
     /// </summary>
     /// <param name="filePath">The full path to the file in Jellyfin.</param>
+    /// <param name="itemName">The item name from Jellyfin metadata (optional).</param>
     /// <returns>A list of possible MD5 hashes.</returns>
-    private static List<string> CalculatePossibleFilenameHashes(string filePath)
+    private static List<string> CalculatePossibleFilenameHashes(string filePath, string? itemName = null)
     {
         var hashes = new List<string>();
         
@@ -344,10 +361,12 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         catch (IOException)
         {
             // File I/O error (file locked, deleted, etc.) - skip binary hash
+            // Don't add to hash list to avoid false matches
         }
         catch (UnauthorizedAccessException)
         {
             // Permission denied - skip binary hash
+            // Don't add to hash list to avoid false matches
         }
         
         // 2. Full filename with extension
@@ -355,6 +374,13 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         if (!string.IsNullOrEmpty(filenameWithExt))
         {
             hashes.Add(CalculateHash(filenameWithExt));
+            
+            // Also try normalized version (handle different space/hyphen characters)
+            var normalized = NormalizeForMatching(filenameWithExt);
+            if (normalized != filenameWithExt)
+            {
+                hashes.Add(CalculateHash(normalized));
+            }
         }
         
         // 3. Filename without extension
@@ -362,6 +388,13 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         if (!string.IsNullOrEmpty(filenameWithoutExt) && filenameWithoutExt != filenameWithExt)
         {
             hashes.Add(CalculateHash(filenameWithoutExt));
+            
+            // Also try normalized version
+            var normalized = NormalizeForMatching(filenameWithoutExt);
+            if (normalized != filenameWithoutExt)
+            {
+                hashes.Add(CalculateHash(normalized));
+            }
         }
         
         // 4. Full path
@@ -370,7 +403,60 @@ public class KoReaderSyncManager : IKoReaderSyncManager
             hashes.Add(CalculateHash(filePath));
         }
         
+        // 5. Item name (from metadata) - KOReader might use the book title from metadata
+        if (!string.IsNullOrEmpty(itemName))
+        {
+            // Try with .epub extension added
+            hashes.Add(CalculateHash(itemName + ".epub"));
+            // Try without extension
+            hashes.Add(CalculateHash(itemName));
+            
+            // Try normalized versions
+            var normalized = NormalizeForMatching(itemName);
+            if (normalized != itemName)
+            {
+                hashes.Add(CalculateHash(normalized + ".epub"));
+                hashes.Add(CalculateHash(normalized));
+            }
+        }
+        
         return hashes;
+    }
+    
+    /// <summary>
+    /// Normalizes a string for matching by:
+    /// - Trimming whitespace
+    /// - Replacing multiple spaces with single space
+    /// - Replacing various dash/hyphen characters with standard hyphen
+    /// - Removing zero-width characters
+    /// This helps match files that have slight formatting differences.
+    /// </summary>
+    /// <param name="input">The string to normalize.</param>
+    /// <returns>The normalized string.</returns>
+    private static string NormalizeForMatching(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+        {
+            return input;
+        }
+        
+        var result = input.Trim();
+        
+        // Replace various dash characters with standard hyphen
+        // U+2013 EN DASH, U+2014 EM DASH, U+2212 MINUS SIGN, U+FF0D FULLWIDTH HYPHEN-MINUS
+        result = result.Replace('\u2013', '-')  // EN DASH
+                      .Replace('\u2014', '-')   // EM DASH
+                      .Replace('\u2212', '-')   // MINUS SIGN
+                      .Replace('\uFF0D', '-');  // FULLWIDTH HYPHEN-MINUS
+        
+        // Replace multiple consecutive spaces with single space (using regex for efficiency)
+        result = Regex.Replace(result, @"\s+", " ", RegexOptions.None, TimeSpan.FromMilliseconds(100));
+        
+        // Remove common zero-width characters
+        result = result.Replace("\u200B", "", StringComparison.Ordinal)  // ZERO WIDTH SPACE
+                      .Replace("\uFEFF", "", StringComparison.Ordinal);  // ZERO WIDTH NO-BREAK SPACE
+        
+        return result;
     }
     
     /// <summary>

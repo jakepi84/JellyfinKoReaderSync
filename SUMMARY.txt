@@ -134,7 +134,7 @@ Password: [Your Jellyfin password]
 Settings:
   ✓ Enable auto sync
   ✓ Sync method: on page turn or on book close
-  ✓ Document matching method: Filename (REQUIRED)
+  ✓ Document matching method: Binary (default, recommended)
   ✓ Test connection with Login button
 
 ================================================================================
@@ -230,7 +230,7 @@ production use. All requirements from the problem statement have been met:
 ✅ Creates an endpoint in Jellyfin to sync book progress with KOReader
 ✅ Compatible with KOReader Progress Sync functionality
 ✅ Uses Jellyfin username and password for authentication
-✅ Verifies book identity by filename matching (requires KOReader filename mode)
+✅ Verifies book identity using binary matching (MD5 of first 16KB) with multiple fallback strategies
 ✅ Resolves sync conflicts (furthest progress wins)
 ✅ Thoroughly commented code
 ✅ Comprehensive README with KOReader setup instructions
