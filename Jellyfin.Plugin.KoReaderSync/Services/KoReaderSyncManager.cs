@@ -347,7 +347,8 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         }
         
         // Calculate and set the playback position
-        userData.PlaybackPositionTicks = (long)(totalTicks * progress.Percentage);
+        // Use Math.Round to ensure consistent rounding behavior and avoid precision loss
+        userData.PlaybackPositionTicks = (long)Math.Round(totalTicks * progress.Percentage, MidpointRounding.AwayFromZero);
         
         _logger.LogDebug(
             "Set PlaybackPositionTicks for '{ItemName}' to {Position} (of {Total} total, {Percentage}%)",
