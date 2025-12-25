@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.KoReaderSync.Models;
 using MediaBrowser.Controller.Entities;
@@ -357,14 +358,14 @@ public class KoReaderSyncManager : IKoReaderSyncManager
                 hashes.Add(binaryHash);
             }
         }
-        catch (IOException ex)
+        catch (IOException)
         {
-            // File I/O error (file locked, deleted, etc.) - skip binary hash but log it
+            // File I/O error (file locked, deleted, etc.) - skip binary hash
             // Don't add to hash list to avoid false matches
         }
-        catch (UnauthorizedAccessException ex)
+        catch (UnauthorizedAccessException)
         {
-            // Permission denied - skip binary hash but log it
+            // Permission denied - skip binary hash
             // Don't add to hash list to avoid false matches
         }
         
@@ -448,11 +449,8 @@ public class KoReaderSyncManager : IKoReaderSyncManager
                       .Replace('\u2212', '-')   // MINUS SIGN
                       .Replace('\uFF0D', '-');  // FULLWIDTH HYPHEN-MINUS
         
-        // Replace multiple consecutive spaces with single space
-        while (result.Contains("  ", StringComparison.Ordinal))
-        {
-            result = result.Replace("  ", " ", StringComparison.Ordinal);
-        }
+        // Replace multiple consecutive spaces with single space (using regex for efficiency)
+        result = Regex.Replace(result, @"\s+", " ", RegexOptions.None, TimeSpan.FromMilliseconds(100));
         
         // Remove common zero-width characters
         result = result.Replace("\u200B", "", StringComparison.Ordinal)  // ZERO WIDTH SPACE
