@@ -207,8 +207,8 @@ public class KoReaderSyncManager : IKoReaderSyncManager
             {
                 _logger.LogWarning(
                     "No matching Jellyfin item found for document \"{Document}\". Progress will still sync between KOReader devices. " +
-                    "If using KOReader's 'Filename' matching method, note that it uses the full file path on device (e.g., /mnt/onboard/Books/book.epub). " +
-                    "Consider using KOReader's 'Binary' matching method instead for better compatibility, or ensure filenames match exactly between KOReader and Jellyfin.",
+                    "The plugin supports both KOReader matching methods: 'Binary' (default, MD5 of first 16KB) and 'Filename' (MD5 of path). " +
+                    "For best results, use KOReader's default 'Binary' method, or ensure filenames match exactly if using 'Filename' method.",
                     progress.Document);
                 return;
             }
@@ -257,8 +257,8 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         
         _logger.LogInformation(
             "Searching through {Count} book/audiobook items for document ID \"{DocumentId}\". " +
-            "Note: KOReader's 'Filename' method calculates MD5 of the full file path on device. " +
-            "We'll try matching against: (1) filename with extension, (2) filename without extension, (3) full Jellyfin path.",
+            "Trying multiple matching strategies: (1) Binary (MD5 of first 16KB - KOReader default), " +
+            "(2) Filename with extension, (3) Filename without extension, (4) Full path.",
             items.Count, documentId);
 
         var checkedCount = 0;
@@ -310,11 +310,13 @@ public class KoReaderSyncManager : IKoReaderSyncManager
 
     /// <summary>
     /// Calculates multiple possible MD5 hashes for a file to match against KOReader's document ID.
-    /// KOReader's "Filename" method uses the full path on the device, but we don't know that path.
-    /// We generate multiple possible hashes to try matching:
-    /// 1. Full filename with extension (e.g., "book.epub")
-    /// 2. Filename without extension (e.g., "book") 
-    /// 3. Full path as stored in Jellyfin
+    /// KOReader supports two document matching methods:
+    /// 1. "Binary" method (default): MD5 of the first 16KB of file content - most reliable
+    /// 2. "Filename" method: MD5 of the full path on device - harder to match
+    /// 
+    /// We try multiple strategies:
+    /// - Binary: MD5 of first 16KB of file content (matches KOReader's default "Binary" method)
+    /// - Filename variations: with extension, without extension, full path
     /// </summary>
     /// <param name="filePath">The full path to the file in Jellyfin.</param>
     /// <returns>A list of possible MD5 hashes.</returns>
@@ -322,27 +324,72 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     {
         var hashes = new List<string>();
         
-        // 1. Full filename with extension
+        // 1. Binary method: MD5 of first 16KB of file content (KOReader's default)
+        // This is the most reliable method as it doesn't depend on filename or path
+        try
+        {
+            var binaryHash = CalculateBinaryHash(filePath);
+            if (!string.IsNullOrEmpty(binaryHash))
+            {
+                hashes.Add(binaryHash);
+            }
+        }
+        catch (Exception)
+        {
+            // If we can't read the file, skip binary hash
+        }
+        
+        // 2. Full filename with extension
         var filenameWithExt = Path.GetFileName(filePath);
         if (!string.IsNullOrEmpty(filenameWithExt))
         {
             hashes.Add(CalculateHash(filenameWithExt));
         }
         
-        // 2. Filename without extension
+        // 3. Filename without extension
         var filenameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
         if (!string.IsNullOrEmpty(filenameWithoutExt) && filenameWithoutExt != filenameWithExt)
         {
             hashes.Add(CalculateHash(filenameWithoutExt));
         }
         
-        // 3. Full path
+        // 4. Full path
         if (!string.IsNullOrEmpty(filePath))
         {
             hashes.Add(CalculateHash(filePath));
         }
         
         return hashes;
+    }
+    
+    /// <summary>
+    /// Calculates the MD5 hash of the first 16KB of a file.
+    /// This matches KOReader's "Binary" document matching method (the default).
+    /// </summary>
+    /// <param name="filePath">The full path to the file.</param>
+    /// <returns>The MD5 hash as a lowercase hexadecimal string, or empty string on error.</returns>
+    private static string CalculateBinaryHash(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            return string.Empty;
+        }
+        
+        const int bufferSize = 16 * 1024; // 16KB - matches KOReader's binary method
+        var buffer = new byte[bufferSize];
+        
+        using var fileStream = File.OpenRead(filePath);
+        var bytesRead = fileStream.Read(buffer, 0, bufferSize);
+        
+        if (bytesRead == 0)
+        {
+            return string.Empty;
+        }
+        
+        using var md5 = MD5.Create();
+        // Only hash the bytes that were actually read
+        var hashBytes = md5.ComputeHash(buffer, 0, bytesRead);
+        return Convert.ToHexString(hashBytes).ToLowerInvariant();
     }
     
     /// <summary>
