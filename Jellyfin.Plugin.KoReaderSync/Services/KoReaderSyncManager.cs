@@ -248,7 +248,8 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         var query = new InternalItemsQuery(user)
         {
             IncludeItemTypes = new[] { BaseItemKind.AudioBook, BaseItemKind.Book },
-            Recursive = true
+            Recursive = true,
+            Limit = null // Remove default limit to retrieve all items
         };
 
         var items = _libraryManager.GetItemList(query);
