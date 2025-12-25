@@ -66,7 +66,7 @@ public class KoReaderSyncApi : ControllerBase
         catch (AuthenticationException ex)
         {
             _logger.LogWarning(ex, "Authentication failed");
-            return Unauthorized(new { message = "Authentication failed" });
+            return Unauthorized();
         }
         catch (Exception ex)
         {
@@ -123,7 +123,7 @@ public class KoReaderSyncApi : ControllerBase
         catch (AuthenticationException ex)
         {
             _logger.LogWarning(ex, "Authentication failed during progress update");
-            return Unauthorized(new { message = "Authentication failed" });
+            return Unauthorized();
         }
         catch (Exception ex)
         {
@@ -179,7 +179,7 @@ public class KoReaderSyncApi : ControllerBase
         catch (AuthenticationException ex)
         {
             _logger.LogWarning(ex, "Authentication failed during progress retrieval");
-            return Unauthorized(new { message = "Authentication failed" });
+            return Unauthorized();
         }
         catch (Exception ex)
         {
