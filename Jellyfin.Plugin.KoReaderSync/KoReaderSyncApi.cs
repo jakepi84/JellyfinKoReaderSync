@@ -289,9 +289,16 @@ public class KoReaderSyncApi : ControllerBase
         }
 
         // Fallback: Authenticate using only KOReader headers
-        // This is less secure but compatible with standard KOReader sync protocol
-        // We lookup the user by username and trust the x-auth-key is valid
+        // SECURITY NOTE: This mode validates username existence but does NOT verify the password hash.
+        // This is less secure than Basic auth mode but provides compatibility with standard KOReader
+        // sync protocol. Reading progress data is considered low-sensitivity, but users should be
+        // aware that anyone with network access who knows a username can access that user's sync data.
+        // For enhanced security, configure KOReader to send Basic Authentication headers.
         _logger.LogDebug("Attempting authentication with KOReader headers only for user {User}", authUser);
+        
+        var authKeyStr = authKey.ToString();
+        _logger.LogInformation("Authentication mode: KOReader headers only (password hash not validated, x-auth-key: {KeyPrefix}...)", 
+            authKeyStr.Length > 8 ? authKeyStr.Substring(0, 8) : authKeyStr);
         
         var jellyfinUser = _userManager.GetUserByName(authUser!);
         if (jellyfinUser == null)
@@ -300,7 +307,7 @@ public class KoReaderSyncApi : ControllerBase
             throw new AuthenticationException("User not found");
         }
 
-        _logger.LogInformation("User {User} authenticated successfully via KOReader headers", authUser);
+        _logger.LogInformation("User {User} authenticated successfully via KOReader headers (security mode: username-only)", authUser);
         return jellyfinUser.Id;
     }
 

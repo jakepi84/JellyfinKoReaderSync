@@ -28,11 +28,13 @@ The plugin supports two authentication modes:
    - Send only `x-auth-user` and `x-auth-key` headers
    - Compatible with KOReader's default configuration
    - Username must exist in Jellyfin
+   - **Security Note**: This mode validates username existence but does not verify the password hash. Use appropriate network security measures (HTTPS, firewall) when using this mode.
 
 2. **KOReader Headers + Basic Auth** (Enhanced Security):
    - Send both custom headers and Basic Authentication
    - Validates password against Jellyfin
    - Provides stronger authentication
+   - **Recommended** for internet-facing servers
 
 ### Example Authentication
 

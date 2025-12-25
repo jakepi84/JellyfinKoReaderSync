@@ -80,6 +80,11 @@ A Jellyfin plugin that enables seamless reading progress synchronization between
 - Your Jellyfin username must match the `x-auth-user` header value
 - Make sure to enter your credentials exactly as they appear in Jellyfin
 
+⚠️ **Security Considerations:**
+- **Standard Mode** (headers only): Validates username existence but not the password hash. Anyone with network access who knows a username can access that user's reading progress.
+- **Enhanced Security Mode** (headers + Basic auth): Validates password against Jellyfin for stronger authentication. **Recommended for internet-facing servers.**
+- Reading progress data is considered low-sensitivity (book position, percentage)
+
 ⚠️ **HTTPS Recommendations:**
 - Use HTTPS when accessing Jellyfin over the internet
 - For local network access, HTTP is acceptable
