@@ -11,23 +11,46 @@ http://localhost:8096/plugins/koreader/v1/healthcheck
 
 ## Authentication
 
-Most endpoints require authentication using both:
+Most endpoints require authentication using KOReader's custom headers:
 
-1. **Custom Headers** (KOReader format):
+1. **Custom Headers** (KOReader format) - **Required**:
    - `x-auth-user`: Your Jellyfin username
    - `x-auth-key`: MD5 hash of your password (lowercase hex)
 
-2. **HTTP Basic Authentication**:
+2. **HTTP Basic Authentication** - **Optional** (for enhanced security):
    - `Authorization: Basic <base64(username:password)>`
+
+### Authentication Modes
+
+The plugin supports two authentication modes:
+
+1. **KOReader Headers Only** (Standard Mode):
+   - Send only `x-auth-user` and `x-auth-key` headers
+   - Compatible with KOReader's default configuration
+   - Username must exist in Jellyfin
+
+2. **KOReader Headers + Basic Auth** (Enhanced Security):
+   - Send both custom headers and Basic Authentication
+   - Validates password against Jellyfin
+   - Provides stronger authentication
 
 ### Example Authentication
 
+**Standard Mode (KOReader Headers Only):**
 ```bash
 # Calculate MD5 hash of password
 echo -n "mypassword" | md5sum
 # Output: 34819d7beeabb9260a5c854bc85b3e44
 
 # Make authenticated request
+curl -X GET \
+  -H "x-auth-user: myusername" \
+  -H "x-auth-key: 34819d7beeabb9260a5c854bc85b3e44" \
+  http://localhost:8096/plugins/koreader/v1/users/auth
+```
+
+**Enhanced Security Mode (with Basic Auth):**
+```bash
 curl -X GET \
   -H "x-auth-user: myusername" \
   -H "x-auth-key: 34819d7beeabb9260a5c854bc85b3e44" \
@@ -65,7 +88,7 @@ Verify user credentials.
 
 **URL:** `GET /plugins/koreader/v1/users/auth`
 
-**Authentication:** Required (headers + basic auth)
+**Authentication:** Required (KOReader headers, Basic auth optional)
 
 **Response:**
 ```json
@@ -79,7 +102,6 @@ Verify user credentials.
 curl -X GET \
   -H "x-auth-user: myusername" \
   -H "x-auth-key: 34819d7beeabb9260a5c854bc85b3e44" \
-  -u myusername:mypassword \
   http://localhost:8096/plugins/koreader/v1/users/auth
 ```
 
@@ -91,7 +113,7 @@ Retrieve stored reading progress for a document.
 
 **URL:** `GET /plugins/koreader/v1/syncs/progress/{document}`
 
-**Authentication:** Required (headers + basic auth)
+**Authentication:** Required (KOReader headers, Basic auth optional)
 
 **URL Parameters:**
 - `document` (string): Document identifier (MD5 hash from KOReader)
@@ -118,7 +140,6 @@ Retrieve stored reading progress for a document.
 curl -X GET \
   -H "x-auth-user: myusername" \
   -H "x-auth-key: 34819d7beeabb9260a5c854bc85b3e44" \
-  -u myusername:mypassword \
   http://localhost:8096/plugins/koreader/v1/syncs/progress/abc123def456789
 ```
 
@@ -130,7 +151,7 @@ Store or update reading progress for a document.
 
 **URL:** `PUT /plugins/koreader/v1/syncs/progress`
 
-**Authentication:** Required (headers + basic auth)
+**Authentication:** Required (KOReader headers, Basic auth optional)
 
 **Request Body:**
 ```json
@@ -164,7 +185,6 @@ curl -X PUT \
   -H "Content-Type: application/json" \
   -H "x-auth-user: myusername" \
   -H "x-auth-key: 34819d7beeabb9260a5c854bc85b3e44" \
-  -u myusername:mypassword \
   -d '{
     "document": "abc123def456789",
     "percentage": 0.45,
@@ -258,7 +278,6 @@ PASSWORD_MD5=$(echo -n "$PASSWORD" | md5sum | cut -d' ' -f1)
 curl -X GET \
   -H "x-auth-user: $USERNAME" \
   -H "x-auth-key: $PASSWORD_MD5" \
-  -u "$USERNAME:$PASSWORD" \
   http://localhost:8096/plugins/koreader/v1/users/auth
 ```
 
@@ -269,7 +288,6 @@ curl -X PUT \
   -H "Content-Type: application/json" \
   -H "x-auth-user: $USERNAME" \
   -H "x-auth-key: $PASSWORD_MD5" \
-  -u "$USERNAME:$PASSWORD" \
   -d '{
     "document": "test123",
     "percentage": 0.25,
@@ -283,7 +301,6 @@ curl -X PUT \
 curl -X GET \
   -H "x-auth-user: $USERNAME" \
   -H "x-auth-key: $PASSWORD_MD5" \
-  -u "$USERNAME:$PASSWORD" \
   http://localhost:8096/plugins/koreader/v1/syncs/progress/test123
 ```
 

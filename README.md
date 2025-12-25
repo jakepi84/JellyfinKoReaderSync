@@ -74,9 +74,10 @@ A Jellyfin plugin that enables seamless reading progress synchronization between
 ### Important Notes
 
 ⚠️ **Authentication Requirements:**
-- The plugin requires **both** the KOReader custom headers (`x-auth-user`, `x-auth-key`) **and** HTTP Basic Authentication
+- The plugin requires KOReader custom headers (`x-auth-user`, `x-auth-key`)
 - KOReader sends the MD5 hash of your password in the `x-auth-key` header
-- Basic Authentication is used to authenticate with Jellyfin's user manager
+- HTTP Basic Authentication is **optional** but provides enhanced security
+- Your Jellyfin username must match the `x-auth-user` header value
 - Make sure to enter your credentials exactly as they appear in Jellyfin
 
 ⚠️ **HTTPS Recommendations:**
@@ -106,21 +107,20 @@ The plugin implements the following KOReader-compatible endpoints:
 
 All endpoints (except `/healthcheck`) require authentication via:
 
-1. **Custom Headers** (KOReader format):
+1. **Custom Headers** (KOReader format) - **Required**:
    - `x-auth-user`: Your Jellyfin username
    - `x-auth-key`: MD5 hash of your Jellyfin password
 
-2. **HTTP Basic Authentication** (required for Jellyfin authentication):
+2. **HTTP Basic Authentication** - **Optional** (for enhanced security):
    - `Authorization: Basic <base64(username:password)>`
 
 ### Example API Call
 
 ```bash
-# Get reading progress for a document
+# Get reading progress for a document (using KOReader headers only)
 curl -X GET \
   -H "x-auth-user: myusername" \
   -H "x-auth-key: 5f4dcc3b5aa765d61d8327deb882cf99" \
-  -u myusername:mypassword \
   https://jellyfin.example.com/plugins/koreader/v1/syncs/progress/abc123def456
 ```
 
