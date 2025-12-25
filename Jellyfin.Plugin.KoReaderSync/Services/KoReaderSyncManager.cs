@@ -205,9 +205,10 @@ public class KoReaderSyncManager : IKoReaderSyncManager
             
             if (matchingItem == null)
             {
-                _logger.LogInformation(
-                    "No matching Jellyfin item found for document {Document}. Progress will still sync between KOReader devices. " +
-                    "Ensure KOReader is configured to use 'Filename' as document matching method and the book filename matches.",
+                _logger.LogWarning(
+                    "No matching Jellyfin item found for document \"{Document}\". Progress will still sync between KOReader devices. " +
+                    "If using KOReader's 'Filename' matching method, note that it uses the full file path on device (e.g., /mnt/onboard/Books/book.epub). " +
+                    "Consider using KOReader's 'Binary' matching method instead for better compatibility, or ensure filenames match exactly between KOReader and Jellyfin.",
                     progress.Document);
                 return;
             }
@@ -254,7 +255,10 @@ public class KoReaderSyncManager : IKoReaderSyncManager
 
         var items = _libraryManager.GetItemList(query);
         
-        _logger.LogInformation("Searching through {Count} book/audiobook items for document ID {DocumentId}", 
+        _logger.LogInformation(
+            "Searching through {Count} book/audiobook items for document ID \"{DocumentId}\". " +
+            "Note: KOReader's 'Filename' method calculates MD5 of the full file path on device. " +
+            "We'll try matching against: (1) filename with extension, (2) filename without extension, (3) full Jellyfin path.",
             items.Count, documentId);
 
         var checkedCount = 0;
@@ -270,23 +274,28 @@ public class KoReaderSyncManager : IKoReaderSyncManager
 
             try
             {
-                // Calculate MD5 hash of filename (without path or extension)
-                var filenameHash = CalculateFilenameHash(path);
+                // Calculate possible MD5 hashes for this file
+                // KOReader's "Filename" method uses the full path on device, but we don't know that path
+                // So we try multiple matching strategies: filename with extension, without extension, and full path
+                var possibleHashes = CalculatePossibleFilenameHashes(path);
                 
                 checkedCount++;
                 // Log first 5 items at INFO level to help troubleshooting
                 if (checkedCount <= 5)
                 {
-                    _logger.LogInformation("Checking item '{Name}' (Filename: {Filename}): Hash={Hash}", 
-                        item.Name, Path.GetFileNameWithoutExtension(path), filenameHash);
+                    _logger.LogInformation("Checking item '{Name}' (Filename: {Filename}): Hashes=[{Hashes}]", 
+                        item.Name, Path.GetFileName(path), string.Join(", ", possibleHashes));
                 }
                 else
                 {
-                    _logger.LogDebug("Checking item '{Name}': Hash={Hash}", item.Name, filenameHash);
+                    _logger.LogDebug("Checking item '{Name}': Hashes=[{Hashes}]", item.Name, string.Join(", ", possibleHashes));
                 }
 
-                if (filenameHash.Equals(documentId, StringComparison.OrdinalIgnoreCase))
+                // Check if any of the possible hashes match the document ID
+                if (possibleHashes.Any(hash => hash.Equals(documentId, StringComparison.OrdinalIgnoreCase)))
                 {
+                    _logger.LogInformation("Matched document {DocumentId} to item '{Name}' using one of the calculated hashes", 
+                        documentId, item.Name);
                     return item;
                 }
             }
@@ -300,24 +309,51 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     }
 
     /// <summary>
-    /// Calculates the MD5 hash of a filename (without path or extension).
-    /// This matches KOReader's "Filename" document matching method.
+    /// Calculates multiple possible MD5 hashes for a file to match against KOReader's document ID.
+    /// KOReader's "Filename" method uses the full path on the device, but we don't know that path.
+    /// We generate multiple possible hashes to try matching:
+    /// 1. Full filename with extension (e.g., "book.epub")
+    /// 2. Filename without extension (e.g., "book") 
+    /// 3. Full path as stored in Jellyfin
     /// </summary>
-    /// <param name="filePath">The full path to the file.</param>
-    /// <returns>The MD5 hash of the filename as a lowercase hexadecimal string.</returns>
-    private static string CalculateFilenameHash(string filePath)
+    /// <param name="filePath">The full path to the file in Jellyfin.</param>
+    /// <returns>A list of possible MD5 hashes.</returns>
+    private static List<string> CalculatePossibleFilenameHashes(string filePath)
     {
-        // Get filename without path and without extension
-        var filename = Path.GetFileNameWithoutExtension(filePath);
+        var hashes = new List<string>();
         
-        // Handle edge cases where filename might be null or empty
-        if (string.IsNullOrEmpty(filename))
+        // 1. Full filename with extension
+        var filenameWithExt = Path.GetFileName(filePath);
+        if (!string.IsNullOrEmpty(filenameWithExt))
         {
-            return string.Empty;
+            hashes.Add(CalculateHash(filenameWithExt));
         }
         
+        // 2. Filename without extension
+        var filenameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
+        if (!string.IsNullOrEmpty(filenameWithoutExt) && filenameWithoutExt != filenameWithExt)
+        {
+            hashes.Add(CalculateHash(filenameWithoutExt));
+        }
+        
+        // 3. Full path
+        if (!string.IsNullOrEmpty(filePath))
+        {
+            hashes.Add(CalculateHash(filePath));
+        }
+        
+        return hashes;
+    }
+    
+    /// <summary>
+    /// Calculates the MD5 hash of a string.
+    /// </summary>
+    /// <param name="input">The string to hash.</param>
+    /// <returns>The MD5 hash as a lowercase hexadecimal string.</returns>
+    private static string CalculateHash(string input)
+    {
         using var md5 = MD5.Create();
-        var inputBytes = Encoding.UTF8.GetBytes(filename);
+        var inputBytes = Encoding.UTF8.GetBytes(input);
         var hashBytes = md5.ComputeHash(inputBytes);
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
     }
