@@ -23,10 +23,10 @@ public class KoReaderSyncManager : IKoReaderSyncManager
 {
     /// <summary>
     /// Synthetic duration for books without RunTimeTicks (1 hour in ticks).
-    /// 10,000,000 ticks = 1 second, so 36,000,000,000 ticks = 3,600 seconds = 1 hour.
+    /// Using TimeSpan.FromHours(1).Ticks provides a clear, maintainable constant.
     /// This provides fine-grained progress tracking for books.
     /// </summary>
-    private const long SyntheticBookDurationTicks = 36_000_000_000L;
+    private static readonly long SyntheticBookDurationTicks = TimeSpan.FromHours(1).Ticks;
 
     private readonly ILogger<KoReaderSyncManager> _logger;
     private readonly IUserDataManager _userDataManager;
