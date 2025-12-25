@@ -122,7 +122,6 @@ curl "$SERVER/plugins/koreader/v1/healthcheck"
 curl -X GET \
   -H "x-auth-user: $USERNAME" \
   -H "x-auth-key: $PASSWORD_MD5" \
-  -u "$USERNAME:$PASSWORD" \
   "$SERVER/plugins/koreader/v1/users/auth"
 
 # Update progress
@@ -130,7 +129,6 @@ curl -X PUT \
   -H "Content-Type: application/json" \
   -H "x-auth-user: $USERNAME" \
   -H "x-auth-key: $PASSWORD_MD5" \
-  -u "$USERNAME:$PASSWORD" \
   -d '{
     "document": "test123",
     "percentage": 0.5,
@@ -143,7 +141,6 @@ curl -X PUT \
 curl -X GET \
   -H "x-auth-user: $USERNAME" \
   -H "x-auth-key: $PASSWORD_MD5" \
-  -u "$USERNAME:$PASSWORD" \
   "$SERVER/plugins/koreader/v1/syncs/progress/test123"
 ```
 

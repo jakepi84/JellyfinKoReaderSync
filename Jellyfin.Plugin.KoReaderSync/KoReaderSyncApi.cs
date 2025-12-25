@@ -206,8 +206,9 @@ public class KoReaderSyncApi : ControllerBase
     /// - x-auth-user: The username
     /// - x-auth-key: MD5 hash of the password
     /// 
-    /// We need to authenticate against Jellyfin using the username and actual password,
-    /// so we store a mapping of username to password hash for validation.
+    /// This method supports two authentication modes:
+    /// 1. KOReader headers + Basic auth (most secure): Validates password against Jellyfin
+    /// 2. KOReader headers only (fallback): Validates username exists in Jellyfin
     /// </summary>
     /// <returns>The authenticated user's ID.</returns>
     /// <exception cref="AuthenticationException">Thrown when authentication fails.</exception>
@@ -225,16 +226,7 @@ public class KoReaderSyncApi : ControllerBase
             throw new AuthenticationException("Authentication headers (x-auth-user, x-auth-key) are required");
         }
 
-        // Note: KOReader sends the MD5 hash of the password in x-auth-key
-        // We need to try authenticating with Jellyfin using the username
-        // and validate against the stored hash
-        
-        // For Jellyfin authentication, we need the actual password
-        // Since KOReader only sends the MD5 hash, we need to implement a workaround:
-        // 1. Users must configure their password in both KOReader and have the same password in Jellyfin
-        // 2. We'll use basic auth as a fallback if provided
-        
-        // Check if Basic auth is also provided (recommended approach)
+        // Check if Basic auth is also provided (most secure approach)
         if (Request.Headers.TryGetValue("Authorization", out var authHeader) && 
             !string.IsNullOrEmpty(authHeader))
         {
@@ -296,11 +288,23 @@ public class KoReaderSyncApi : ControllerBase
             }
         }
 
-        // If we get here, we only have KOReader headers without Basic auth
-        // We cannot authenticate without the actual password
-        _logger.LogWarning("Authentication requires both KOReader headers and Basic auth");
-        throw new AuthenticationException(
-            "Authentication requires both x-auth-user/x-auth-key headers and Basic Authorization header with username:password");
+        // Fallback: Authenticate using only KOReader headers
+        // SECURITY NOTE: This mode validates username existence but does NOT verify the password hash.
+        // This is less secure than Basic auth mode but provides compatibility with standard KOReader
+        // sync protocol. Reading progress data is considered low-sensitivity, but users should be
+        // aware that anyone with network access who knows a username can access that user's sync data.
+        // For enhanced security, configure KOReader to send Basic Authentication headers.
+        _logger.LogDebug("Attempting authentication with KOReader headers only for user {User} (password hash not validated)", authUser);
+        
+        var jellyfinUser = _userManager.GetUserByName(authUser);
+        if (jellyfinUser == null)
+        {
+            _logger.LogWarning("User {User} not found in Jellyfin", authUser);
+            throw new AuthenticationException("User not found");
+        }
+
+        _logger.LogDebug("User {User} authenticated successfully via KOReader headers", authUser);
+        return jellyfinUser.Id;
     }
 
     /// <summary>
