@@ -81,7 +81,7 @@ A Jellyfin plugin that enables seamless reading progress synchronization between
 - Make sure to enter your credentials exactly as they appear in Jellyfin
 
 ⚠️ **Security Considerations:**
-- **Standard Mode** (headers only): Validates username existence but not the password hash. **⚠️ WARNING: Anyone with network access who knows a username can access that user's reading progress.** Only use in trusted network environments (e.g., home LAN behind firewall).
+- **Standard Mode** (headers only): Validates username existence but not the password hash. **⚠️ WARNING: Anyone who can send HTTP requests to your server and knows a valid Jellyfin username can access that user's reading progress data.** Only use in trusted network environments (e.g., home LAN behind firewall) or with additional authentication at the network level.
 - **Enhanced Security Mode** (headers + Basic auth): Validates password against Jellyfin for stronger authentication. **✅ RECOMMENDED for internet-facing servers.**
 - Reading progress data is considered low-sensitivity (book position, percentage)
 

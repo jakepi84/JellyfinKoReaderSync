@@ -294,10 +294,9 @@ public class KoReaderSyncApi : ControllerBase
         // sync protocol. Reading progress data is considered low-sensitivity, but users should be
         // aware that anyone with network access who knows a username can access that user's sync data.
         // For enhanced security, configure KOReader to send Basic Authentication headers.
-        _logger.LogDebug("Attempting authentication with KOReader headers only for user {User}", authUser);
-        _logger.LogDebug("Authentication mode: KOReader headers only (password hash not validated)");
+        _logger.LogDebug("Attempting authentication with KOReader headers only for user {User} (password hash not validated)", authUser);
         
-        var jellyfinUser = _userManager.GetUserByName(authUser!);
+        var jellyfinUser = _userManager.GetUserByName(authUser);
         if (jellyfinUser == null)
         {
             _logger.LogWarning("User {User} not found in Jellyfin", authUser);
