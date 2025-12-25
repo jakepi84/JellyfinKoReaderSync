@@ -290,6 +290,12 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         // Get filename without path and without extension
         var filename = Path.GetFileNameWithoutExtension(filePath);
         
+        // Handle edge cases where filename might be null or empty
+        if (string.IsNullOrEmpty(filename))
+        {
+            return string.Empty;
+        }
+        
         using var md5 = MD5.Create();
         var inputBytes = Encoding.UTF8.GetBytes(filename);
         var hashBytes = md5.ComputeHash(inputBytes);
