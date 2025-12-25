@@ -323,11 +323,33 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         var percentage = progress.Percentage * 100;
         
         // Calculate PlaybackPositionTicks based on percentage
-        // For books/audiobooks, we estimate the position based on runtime if available
+        // For audiobooks with RunTimeTicks, use the actual runtime
+        // For books without RunTimeTicks, use a synthetic duration
+        long totalTicks;
         if (item.RunTimeTicks.HasValue && item.RunTimeTicks.Value > 0)
         {
-            userData.PlaybackPositionTicks = (long)(item.RunTimeTicks.Value * progress.Percentage);
+            // Audiobooks have actual runtime - use it
+            totalTicks = item.RunTimeTicks.Value;
+            _logger.LogDebug("Using actual RunTimeTicks for item '{ItemName}': {Ticks}", item.Name, totalTicks);
         }
+        else
+        {
+            // Books don't have runtime - use synthetic duration
+            // 10,000,000 ticks = 1 second, so 36,000,000,000 ticks = 1 hour
+            // Using 1 hour as a synthetic duration for books (allows fine-grained progress tracking)
+            totalTicks = 36_000_000_000L; // 1 hour in ticks
+            _logger.LogDebug("Using synthetic duration for book '{ItemName}': {Ticks} ticks", item.Name, totalTicks);
+        }
+        
+        // Calculate and set the playback position
+        userData.PlaybackPositionTicks = (long)(totalTicks * progress.Percentage);
+        
+        _logger.LogDebug(
+            "Set PlaybackPositionTicks for '{ItemName}' to {Position} (of {Total} total, {Percentage}%)",
+            item.Name,
+            userData.PlaybackPositionTicks,
+            totalTicks,
+            percentage);
         
         // Set playback state based on percentage
         if (percentage >= 100)
@@ -346,9 +368,10 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         _userDataManager.SaveUserData(user, item, userData, UserDataSaveReason.UpdateUserData, System.Threading.CancellationToken.None);
         
         _logger.LogInformation(
-            "Updated Jellyfin progress for item '{ItemName}': {Percentage}% (User: {UserId})",
+            "Updated Jellyfin progress for item '{ItemName}': {Percentage}% (PlaybackPositionTicks: {Position}, User: {UserId})",
             item.Name,
             percentage,
+            userData.PlaybackPositionTicks,
             userId);
     }
 }
