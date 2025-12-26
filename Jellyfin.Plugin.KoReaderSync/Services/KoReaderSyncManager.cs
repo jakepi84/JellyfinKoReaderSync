@@ -29,12 +29,6 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     /// </summary>
     private static readonly long SyntheticBookDurationTicks = TimeSpan.FromHours(1).Ticks;
 
-    /// <summary>
-    /// Common device paths where OPDS-downloaded files might be saved on e-reader devices.
-    /// Used for generating filename hash variations.
-    /// </summary>
-    private static readonly string[] CommonDevicePaths = { "/mnt/onboard/", "/mnt/us/documents/", "/storage/emulated/0/" };
-
     private readonly ILogger<KoReaderSyncManager> _logger;
     private readonly IUserDataManager _userDataManager;
     private readonly ILibraryManager _libraryManager;
@@ -267,9 +261,7 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         var items = _libraryManager.GetItemList(query);
         
         _logger.LogInformation(
-            "Searching through {Count} book/audiobook items for document ID \"{DocumentId}\". " +
-            "Trying multiple matching strategies including direct item ID match, binary hash (MD5 of first 16KB), " +
-            "filename variations, item names, and normalized text variations.",
+            "Searching through {Count} book/audiobook items for document ID \"{DocumentId}\" using binary hash matching.",
             items.Count, documentId);
 
         // First, try direct item ID match (for OPDS-downloaded books)
@@ -299,53 +291,33 @@ public class KoReaderSyncManager : IKoReaderSyncManager
 
             try
             {
-                // Calculate possible MD5 hashes for this file
-                // KOReader's "Filename" method uses the full path on device, but we don't know that path
-                // So we try multiple matching strategies: binary hash, filename variations, item name, item ID
-                var possibleHashes = CalculatePossibleFilenameHashes(path, item.Name, item.Id);
+                // Calculate binary hash for this file
+                var binaryHash = CalculateBinaryHash(path);
                 
                 checkedCount++;
                 // Log first 5 items at INFO level to help troubleshooting
                 if (checkedCount <= 5)
                 {
-                    // Build hash details string showing all hashes for first few items for detailed diagnostics
-                    var hashSummary = possibleHashes.Count > 0 ? 
-                        $"{possibleHashes.Count} hashes calculated: [{string.Join(", ", possibleHashes)}]" :
-                        "No hashes calculated";
-                    
-                    _logger.LogInformation("Checking item '{Name}' (Filename: {Filename}): {HashSummary}",
+                    _logger.LogInformation("Checking item '{Name}' (Binary hash: {BinaryHash})",
                         item.Name, 
-                        Path.GetFileName(path),
-                        hashSummary);
-                    
-                    // If this is one of the first 5 items, also log the binary hash specifically for debugging
-                    if (possibleHashes.Count > 0)
-                    {
-                        _logger.LogDebug("Binary hash (first 16KB) for '{Name}': {BinaryHash}", item.Name, possibleHashes[0]);
-                    }
+                        binaryHash);
                 }
                 else
                 {
-                    _logger.LogDebug("Checking item '{Name}': {Count} hashes calculated", item.Name, possibleHashes.Count);
+                    _logger.LogDebug("Checking item '{Name}': Binary hash = {BinaryHash}", item.Name, binaryHash);
                 }
 
-                // Check if any of the possible hashes match the document ID
-                for (int i = 0; i < possibleHashes.Count; i++)
+                // Check if the binary hash matches the document ID
+                if (!string.IsNullOrEmpty(binaryHash) && binaryHash.Equals(documentId, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (possibleHashes[i].Equals(documentId, StringComparison.OrdinalIgnoreCase))
-                    {
-                        var matchDescription = i == 0 ? "Binary (first 16KB MD5)" : 
-                                              i < 5 ? $"Strategy #{i + 1}" :
-                                              $"Normalized variation #{i + 1 - 4}";
-                        _logger.LogInformation("✓ MATCHED! Document {DocumentId} to item '{Name}' using {MatchType}", 
-                            documentId, item.Name, matchDescription);
-                        return item;
-                    }
+                    _logger.LogInformation("✓ MATCHED! Document {DocumentId} to item '{Name}' using binary hash", 
+                        documentId, item.Name);
+                    return item;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogTrace(ex, "Error calculating filename hash for file: {Path}", path);
+                _logger.LogTrace(ex, "Error calculating binary hash for file: {Path}", path);
             }
         }
 
@@ -399,128 +371,6 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         {
             // Permission denied - skip binary hash
             // Don't add to hash list to avoid false matches
-        }
-        
-        // 2. Full filename with extension
-        var filenameWithExt = Path.GetFileName(filePath);
-        if (!string.IsNullOrEmpty(filenameWithExt))
-        {
-            hashes.Add(CalculateHash(filenameWithExt));
-            
-            // Also try normalized version (handle different space/hyphen characters)
-            var normalized = NormalizeForMatching(filenameWithExt);
-            if (normalized != filenameWithExt)
-            {
-                hashes.Add(CalculateHash(normalized));
-            }
-        }
-        
-        // 3. Filename without extension
-        var filenameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
-        if (!string.IsNullOrEmpty(filenameWithoutExt) && filenameWithoutExt != filenameWithExt)
-        {
-            hashes.Add(CalculateHash(filenameWithoutExt));
-            
-            // Also try normalized version
-            var normalized = NormalizeForMatching(filenameWithoutExt);
-            if (normalized != filenameWithoutExt)
-            {
-                hashes.Add(CalculateHash(normalized));
-            }
-        }
-        
-        // 4. Full path
-        if (!string.IsNullOrEmpty(filePath))
-        {
-            hashes.Add(CalculateHash(filePath));
-        }
-        
-        // 5. Item name (from metadata) - KOReader might use the book title from metadata
-        if (!string.IsNullOrEmpty(itemName))
-        {
-            // Try with .epub extension added
-            hashes.Add(CalculateHash(itemName + ".epub"));
-            // Try without extension
-            hashes.Add(CalculateHash(itemName));
-            
-            // Try normalized versions
-            var normalized = NormalizeForMatching(itemName);
-            if (normalized != itemName)
-            {
-                hashes.Add(CalculateHash(normalized + ".epub"));
-                hashes.Add(CalculateHash(normalized));
-            }
-            
-            // Try without author information (just title)
-            // For books like "101 Conversation Starters for Couples - Gary Chapman"
-            if (itemName.Contains(" - "))
-            {
-                var parts = itemName.Split(" - ");
-                var titleOnly = parts[0].Trim();
-                hashes.Add(CalculateHash(titleOnly + ".epub"));
-                hashes.Add(CalculateHash(titleOnly));
-                
-                // Try with author-first format (common with OPDS plugins)
-                // "Title - Author" becomes "Author - Title"
-                if (parts.Length >= 2)
-                {
-                    var authorFirst = parts[1].Trim() + " - " + titleOnly;
-                    hashes.Add(CalculateHash(authorFirst + ".epub"));
-                    hashes.Add(CalculateHash(authorFirst));
-                }
-            }
-        }
-        
-        // 6. Filename variations (without author, case variations, etc)
-        // KOReader might normalize or store filenames differently
-        // Also handle OPDS plugin filename transformations (author - title format)
-        var baseFilenameWithExt = Path.GetFileName(filePath);
-        var baseFilenameNoExt = Path.GetFileNameWithoutExtension(filePath);
-        
-        if (!string.IsNullOrEmpty(baseFilenameWithExt))
-        {
-            // Try just the title part of filename (before hyphen)
-            if (baseFilenameWithExt.Contains(" - "))
-            {
-                var parts = baseFilenameWithExt.Split(" - ");
-                var titlePart = parts[0].Trim();
-                hashes.Add(CalculateHash(titlePart + ".epub"));
-                hashes.Add(CalculateHash(titlePart));
-                
-                // Try author-first format (OPDS plugin renames files this way)
-                // If current filename is "Title - Author.epub", also try "Author - Title.epub"
-                if (parts.Length >= 2)
-                {
-                    var authorFirst = parts[1].Trim() + " - " + titlePart;
-                    hashes.Add(CalculateHash(authorFirst + ".epub"));
-                    hashes.Add(CalculateHash(authorFirst));
-                }
-            }
-            
-            // Try with different extension casings
-            hashes.Add(CalculateHash(baseFilenameNoExt + ".EPUB"));
-            hashes.Add(CalculateHash(baseFilenameNoExt + ".Epub"));
-        }
-        
-        // 7. Item ID variations (for OPDS-downloaded books)
-        // OPDS may download files with item ID-based filenames
-        if (itemId.HasValue && itemId.Value != Guid.Empty)
-        {
-            var itemIdHex = itemId.Value.ToString("N"); // 32-char hex format without hyphens
-            var itemIdFormatted = itemId.Value.ToString("D"); // Standard GUID format with hyphens
-            
-            // Try item ID as filename (with and without extension)
-            hashes.Add(CalculateHash(itemIdHex + ".epub"));
-            hashes.Add(CalculateHash(itemIdHex));
-            hashes.Add(CalculateHash(itemIdFormatted + ".epub"));
-            hashes.Add(CalculateHash(itemIdFormatted));
-            
-            // Try with common device paths
-            foreach (var basePath in CommonDevicePaths)
-            {
-                hashes.Add(CalculateHash(basePath + itemIdHex + ".epub"));
-                hashes.Add(CalculateHash(basePath + itemIdFormatted + ".epub"));
-            }
         }
         
         return hashes;

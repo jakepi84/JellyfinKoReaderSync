@@ -7,8 +7,7 @@ A Jellyfin plugin that enables seamless reading progress synchronization between
 - ✅ **KOReader Progress Sync API Compatible**: Implements the KOReader sync server API specification
 - ✅ **Jellyfin Native Authentication**: Uses your existing Jellyfin username and password
 - ✅ **Automatic Conflict Resolution**: Keeps the furthest reading progress when conflicts occur
-- ✅ **Smart Book Matching**: Uses binary matching method (partial MD5 hash) with multiple fallback strategies
-- ✅ **Works with KOReader Defaults**: No configuration changes needed in KOReader
+- ✅ **Smart Book Matching**: Uses KOReader's partial MD5 algorithm (samples at exponential intervals)
 - ✅ **Multi-Device Support**: Sync progress across multiple KOReader devices
 - ✅ **Privacy Focused**: Stores only progress data (percentage, position), no file content
 
@@ -76,9 +75,9 @@ A Jellyfin plugin that enables seamless reading progress synchronization between
 ### Important Notes
 
 ⚠️ **Document Matching Method:**
-- **Use KOReader's default "Binary" method** - recommended and fully supported!
-- Binary method uses MD5 of first 16KB of file content - most reliable and path-independent
-- Works automatically with no configuration needed
+- **Use KOReader's default "Binary" method** - fully supported and recommended!
+- Binary method uses partial MD5 algorithm that samples file at exponential intervals (256B, 1KB, 4KB, 16KB, 64KB, 256KB, 1MB, 4MB, 16MB, 64MB, 1GB)
+- This is the most reliable method - path-independent and works even if files are renamed
 - Progress will always sync between KOReader devices regardless of matching
 - Matching with Jellyfin determines whether progress appears in the Jellyfin UI
 - For troubleshooting matching issues, see [TROUBLESHOOTING-MATCHING.md](TROUBLESHOOTING-MATCHING.md)
@@ -141,28 +140,46 @@ curl -X GET \
 
 ## Book Matching
 
-The plugin uses intelligent matching to identify books between KOReader and Jellyfin using KOReader's document matching methods:
+The plugin uses KOReader's exact matching algorithm to identify books between KOReader and Jellyfin.
 
-### Binary Method (Recommended - Default)
+### Binary Method (Default - Fully Supported)
 
-KOReader's default "Binary" method uses MD5 hash of the first 16KB of file content. This is the **most reliable** method because:
-- ✅ Works regardless of filename or path
-- ✅ Matches books even if renamed
-- ✅ No configuration changes needed in KOReader
-- ✅ Consistent across all devices
-- ✅ Path-independent and portable
+KOReader's default "Binary" method uses a sophisticated partial MD5 algorithm that samples file at exponential intervals. This is the **most reliable** method because:
 
-The plugin automatically calculates the binary hash for all books in your Jellyfin library and matches them against KOReader's document ID.
+- ✅ **Path-independent**: Works regardless of where the file is located
+- ✅ **Filename-independent**: Matches books even if renamed or moved
+- ✅ **Efficient**: Samples at strategic positions instead of hashing entire file
+- ✅ **Consistent**: Same algorithm across all devices
+- ✅ **No configuration needed**: Works with KOReader defaults
 
-### Multiple Matching Strategies
+#### How It Works
 
-To maximize compatibility, the plugin tries multiple matching strategies automatically:
-1. **Binary hash** (MD5 of first 16KB) - primary method
-2. **Filename variations** (with/without extension)
-3. **Item name variations** (from metadata)
-4. **Normalized text** (handles special characters, spaces, different dash types)
+The partial MD5 algorithm samples 1KB chunks from these positions in the file:
+- 256 bytes
+- 1 KB
+- 4 KB  
+- 16 KB
+- 64 KB
+- 256 KB
+- 1 MB
+- 4 MB
+- 16 MB
+- 64 MB
+- 1 GB (for very large files)
 
-This multi-strategy approach works with both KOReader's Binary and Filename matching methods, though Binary is recommended.
+These samples are concatenated and hashed to create a unique identifier that's:
+- Fast to calculate (only reads ~11KB for most books)
+- Robust against minor file changes
+- Reliable across different file systems and devices
+
+The plugin uses the **exact same algorithm** as KOReader, ensuring perfect compatibility.
+
+### Matching Process
+
+1. **KOReader** calculates the binary hash when you open a book
+2. **Plugin** calculates the same binary hash for all books in your Jellyfin library
+3. **Match** is made when hashes are identical
+4. **Progress** syncs to Jellyfin UI and all connected devices
 
 ### Matching Results
 
@@ -170,12 +187,24 @@ When a book is successfully matched:
 - ✅ Progress is visible in the Jellyfin UI
 - ✅ Books marked as "In Progress" or "Finished" based on reading percentage
 - ✅ Last played date is updated
+- ✅ Works seamlessly with OPDS plugin downloads
 
 When a book cannot be matched:
 - ⚠️ Progress is still stored and synced between KOReader devices
 - ⚠️ Progress won't be visible in the Jellyfin UI
-- 💡 Use KOReader's default "Binary" method for best results
+- 💡 Most common cause: Different file versions or editions
 - 📖 See [TROUBLESHOOTING-MATCHING.md](TROUBLESHOOTING-MATCHING.md) for detailed diagnostics
+
+### Important: File Versions Matter
+
+Since the binary hash is based on file content, the **exact same file** must be in both locations:
+- ✅ Same EPUB file copied from Jellyfin to KOReader works perfectly
+- ✅ Books downloaded via OPDS plugin match automatically
+- ❌ Different editions (even with same title/author) won't match
+- ❌ Re-encoded or modified files won't match
+- ❌ Files from different sources may differ slightly
+
+**Tip**: For best results, use the Jellyfin OPDS plugin to download books directly to KOReader.
 
 ## Conflict Resolution
 
@@ -214,17 +243,6 @@ Each progress file contains:
 ```
 
 ## Troubleshooting
-### Permission Errors
-
-**Problem**: Jellyfin logs show `UnauthorizedAccessException: Access to the path '/jellyfin/data' is denied` when calling `/plugins/koreader/v1/users/auth`.
-
-**Cause**: Older versions wrote to a hardcoded path. Current builds store data under Jellyfin's plugin configuration directory, which is writable on all platforms.
-
-**Solutions:**
-- Update the plugin to the latest build.
-- Ensure the Jellyfin process has write access to the plugin config directory (see locations above).
-- For Docker, mount `/config` with read/write permissions.
-
 
 ### Connection Issues
 
@@ -261,15 +279,14 @@ Each progress file contains:
 **Problem**: Reading progress not visible in Jellyfin UI
 
 **Solutions:**
-- **Recommended**: Use KOReader's default "Binary" document matching method (no configuration needed)
-- The plugin automatically tries multiple matching strategies:
-  1. Binary hash (MD5 of first 16KB) - most reliable
-  2. Filename with extension (with normalization)
-  3. Filename without extension (with normalization)
-  4. Full path
-  5. Item name variations
+- **Recommended**: Use KOReader's default "Binary" document matching method.
+- The plugin uses KOReader's exact partial MD5 algorithm for matching
+- Ensure the **exact same file** is in both Jellyfin and KOReader:
+  - ✅ Use OPDS plugin to download from Jellyfin directly
+  - ✅ Copy the same file to both locations
+  - ❌ Different editions or file versions won't match
+- Check file integrity: Compare file sizes and MD5 checksums
 - Ensure books in Jellyfin are accessible (not corrupted or missing)
-- Verify both locations have the EXACT same file (check MD5 checksums)
 - Check Jellyfin logs for matching attempts and any errors
 - Progress is always synced between KOReader devices, even if Jellyfin matching fails
 - **For detailed troubleshooting:** See [TROUBLESHOOTING-MATCHING.md](TROUBLESHOOTING-MATCHING.md)
@@ -332,12 +349,13 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ### Areas for Contribution
 
-- Additional book matching strategies (metadata, alternative identifiers)
-- Enhanced conflict resolution options
+- Enhanced diagnostics and logging for matching issues
+- Performance optimizations for large libraries
 - Web-based configuration UI
 - Support for additional e-reader sync protocols
 - Unit tests and integration tests
 - Documentation improvements
+- Support for audiobook progress tracking
 
 ## Privacy & Security
 
@@ -361,8 +379,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - **Issues**: [GitHub Issues](https://github.com/jakepi84/JellyfinKoReaderSync/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/jakepi84/JellyfinKoReaderSync/discussions)
-- **Jellyfin Community**: [Jellyfin Forum](https://forum.jellyfin.org/)
 
 ---
 
-Made with copilot, I am not a developer and this is mostly AI slop code.
+**Made with copilot, I am not a developer and this is mostly AI slop code.**
