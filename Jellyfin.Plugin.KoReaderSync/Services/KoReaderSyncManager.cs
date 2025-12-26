@@ -30,11 +30,11 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     private static readonly long SyntheticBookDurationTicks = TimeSpan.FromHours(1).Ticks;
 
     /// <summary>
-    /// Buffer size for calculating binary hash (16KB).
-    /// This matches KOReader's "Binary" document matching method which uses
-    /// the MD5 hash of the first 16KB of file content.
+    /// Sample size for calculating partial MD5 hash (1KB per sample).
+    /// KOReader's "Binary" document matching method uses partialMD5 which
+    /// samples 1KB at multiple positions throughout the file.
     /// </summary>
-    private const int BinaryHashBufferSize = 16 * 1024;
+    private const int PartialMD5SampleSize = 1024;
 
     /// <summary>
     /// Common device paths where OPDS-downloaded files might be saved on e-reader devices.
@@ -271,7 +271,7 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         
         _logger.LogInformation(
             "Searching through {Count} book/audiobook items for document ID \"{DocumentId}\". " +
-            "Trying multiple matching strategies including direct item ID match, binary hash (MD5 of first 16KB), " +
+            "Trying multiple matching strategies including direct item ID match, binary hash (partialMD5), " +
             "filename variations, item names, and normalized text variations.",
             items.Count, documentId);
 
@@ -352,11 +352,11 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     /// <summary>
     /// Calculates multiple possible MD5 hashes for a file to match against KOReader's document ID.
     /// KOReader supports two document matching methods:
-    /// 1. "Binary" method (default): MD5 of the first 16KB of file content - most reliable
+    /// 1. "Binary" method (default): partialMD5 sampling at multiple file positions - most reliable
     /// 2. "Filename" method: MD5 of the full path on device - harder to match
     /// 
     /// We try multiple strategies:
-    /// - Binary: MD5 of first 16KB of file content (matches KOReader's default "Binary" method)
+    /// - Binary: partialMD5 sampling (matches KOReader's default "Binary" method)
     /// - Filename variations: with extension, without extension, full path
     /// - Item name (title from metadata)
     /// - Item ID variations: for OPDS-downloaded files that may use item IDs in filenames
@@ -370,7 +370,7 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     {
         var hashes = new List<string>();
         
-        // 1. Binary method: MD5 of first 16KB of file content (KOReader's default)
+        // 1. Binary method: partialMD5 sampling at multiple positions (KOReader's default)
         // This is the most reliable method as it doesn't depend on filename or path
         try
         {
@@ -557,8 +557,13 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     }
     
     /// <summary>
-    /// Calculates the MD5 hash of the first 16KB of a file.
+    /// Calculates the partial MD5 hash of a file using KOReader's algorithm.
     /// This matches KOReader's "Binary" document matching method (the default).
+    /// 
+    /// KOReader's partialMD5 samples 1KB at multiple positions:
+    /// - Position: step &lt;&lt; (2*i) for i = -1 to 10
+    /// - step = 1024, so positions are: 256, 1024, 4096, 16384, 65536, 262144, 1048576, ...
+    /// - Reads 1KB at each position and updates MD5 with the sample
     /// </summary>
     /// <param name="filePath">The full path to the file.</param>
     /// <returns>The MD5 hash as a lowercase hexadecimal string, or empty string on error.</returns>
@@ -571,22 +576,59 @@ public class KoReaderSyncManager : IKoReaderSyncManager
             return string.Empty;
         }
         
-        var buffer = new byte[BinaryHashBufferSize];
+        const int step = 1024;
+        const int sampleSize = PartialMD5SampleSize;
+        var buffer = new byte[sampleSize];
         
-        // File operations can fail between existence check and open due to concurrent access
-        // Let exceptions propagate to caller for proper handling
-        using var fileStream = File.OpenRead(filePath);
-        var bytesRead = fileStream.Read(buffer, 0, BinaryHashBufferSize);
-        
-        if (bytesRead == 0)
+        try
         {
+            using var fileStream = File.OpenRead(filePath);
+            using var md5 = MD5.Create();
+            
+            // Sample file at multiple positions (i = -1 to 10)
+            for (int i = -1; i <= 10; i++)
+            {
+                // Calculate position: step << (2*i)
+                // When 2*i is negative, this becomes step >> abs(2*i)
+                long position;
+                int shiftAmount = 2 * i;
+                if (shiftAmount >= 0)
+                {
+                    position = (long)step << shiftAmount;
+                }
+                else
+                {
+                    position = (long)step >> Math.Abs(shiftAmount);
+                }
+                
+                // Try to seek to position
+                if (position >= fileStream.Length)
+                {
+                    break;
+                }
+                
+                fileStream.Seek(position, SeekOrigin.Begin);
+                
+                // Read sample
+                int bytesRead = fileStream.Read(buffer, 0, sampleSize);
+                if (bytesRead == 0)
+                {
+                    break;
+                }
+                
+                // Update MD5 with this sample
+                md5.TransformBlock(buffer, 0, bytesRead, null, 0);
+            }
+            
+            // Finalize the hash
+            md5.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+            return Convert.ToHexString(md5.Hash ?? Array.Empty<byte>()).ToLowerInvariant();
+        }
+        catch
+        {
+            // File operations can fail - return empty string
             return string.Empty;
         }
-        
-        using var md5 = MD5.Create();
-        // Only hash the bytes that were actually read
-        var hashBytes = md5.ComputeHash(buffer, 0, bytesRead);
-        return Convert.ToHexString(hashBytes).ToLowerInvariant();
     }
     
     /// <summary>
