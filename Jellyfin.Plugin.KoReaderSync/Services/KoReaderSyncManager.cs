@@ -264,7 +264,7 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         
         _logger.LogInformation(
             "Searching through {Count} book/audiobook items for document ID \"{DocumentId}\". " +
-            "Trying multiple matching strategies including direct item ID match, binary hash (partialMD5), " +
+            "Trying multiple matching strategies including direct item ID match, binary hash (MD5 of first 16KB), " +
             "filename variations, item names, and normalized text variations.",
             items.Count, documentId);
 
