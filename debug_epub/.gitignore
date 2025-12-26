@@ -1,0 +1,9 @@
+# Debug EPUB files - for local testing only
+# Do not commit these to the repository
+*.epub
+*.pdf
+*.mobi
+*.azw3
+
+# This folder is used for local development and testing
+# Place test files here to verify hash calculations

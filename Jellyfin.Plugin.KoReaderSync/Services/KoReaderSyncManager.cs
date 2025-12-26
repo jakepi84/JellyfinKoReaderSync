@@ -213,10 +213,14 @@ public class KoReaderSyncManager : IKoReaderSyncManager
             if (matchingItem == null)
             {
                 _logger.LogWarning(
-                    "No matching Jellyfin item found for document \"{Document}\". Progress will still sync between KOReader devices. " +
+                    "No matching Jellyfin item found for document \"{Document}\". " +
+                    "DIAGNOSTIC: Document hash was: {DocumentHash}. " +
+                    "This usually means the EPUB file in KOReader is a different version than in Jellyfin. " +
+                    "Verify both locations have the EXACT same file (same edition, same source). " +
+                    "Progress will still sync between KOReader devices. " +
                     "The plugin supports both KOReader matching methods: 'Binary' (default, MD5 of first 16KB) and 'Filename' (MD5 of path). " +
-                    "For best results, use KOReader's default 'Binary' method, or ensure filenames match exactly if using 'Filename' method.",
-                    progress.Document);
+                    "For best results, use KOReader's default 'Binary' method.",
+                    progress.Document, progress.Document);
                 return;
             }
 
@@ -304,15 +308,21 @@ public class KoReaderSyncManager : IKoReaderSyncManager
                 // Log first 5 items at INFO level to help troubleshooting
                 if (checkedCount <= 5)
                 {
-                    // Build hash details string showing first few hashes
+                    // Build hash details string showing all hashes for first few items for detailed diagnostics
                     var hashSummary = possibleHashes.Count > 0 ? 
-                        $"{possibleHashes.Count} hashes calculated: [{string.Join(", ", possibleHashes.Take(3))}{(possibleHashes.Count > 3 ? "..." : "")}]" :
+                        $"{possibleHashes.Count} hashes calculated: [{string.Join(", ", possibleHashes)}]" :
                         "No hashes calculated";
                     
                     _logger.LogInformation("Checking item '{Name}' (Filename: {Filename}): {HashSummary}",
                         item.Name, 
                         Path.GetFileName(path),
                         hashSummary);
+                    
+                    // If this is one of the first 5 items, also log the binary hash specifically for debugging
+                    if (possibleHashes.Count > 0)
+                    {
+                        _logger.LogDebug("Binary hash (first 16KB) for '{Name}': {BinaryHash}", item.Name, possibleHashes[0]);
+                    }
                 }
                 else
                 {
@@ -345,20 +355,27 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     /// <summary>
     /// Calculates multiple possible MD5 hashes for a file to match against KOReader's document ID.
     /// KOReader supports two document matching methods:
-    /// 1. "Binary" method (default): MD5 of first 16KB - most reliable
-    /// 2. "Filename" method: MD5 of the full path on device - harder to match
+    /// 1. "Binary" method (default): Partial MD5 sampling file at exponential intervals - most reliable
+    /// 2. "Filename" method: MD5 of just the filename (basename) - easier to implement, less reliable
     /// 
     /// We try multiple strategies:
-    /// - Binary: MD5 of first 16KB (matches KOReader's default "Binary" method)
-    /// - Filename variations: with extension, without extension, full path
-    /// - Item name (title from metadata)
+    /// - Binary: Partial MD5 hash (samples at 256B, 1KB, 4KB, 16KB, 64KB, 256KB, 1MB, 4MB, 16MB, 64MB, 1GB)
+    /// - Filename: MD5 of just the filename with extension (matches KOReader's "Filename" method)
+    /// - Filename without extension: MD5 of filename without extension
+    /// - Full path: MD5 of complete file path (KOReader may use this on some systems)
+    /// - Item name (title from metadata): in case KOReader uses metadata
+    /// - Author-first format: For OPDS plugin files (renames "Title - Author" to "Author - Title")
     /// - Item ID variations: for OPDS-downloaded files that may use item IDs in filenames
-    /// - Normalized variations: handling spaces, hyphens, etc.
+    /// - Normalized variations: handling spaces, hyphens, unicode characters, etc.
+    /// - Additional fallback hashes: for filename variations that KOReader might create
+    /// 
+    /// Note: The jellyfin-plugin-opds plugin transforms filenames to "Author - Title" format,
+    /// which may differ from how files are named in Jellyfin. This method handles both formats.
     /// </summary>
     /// <param name="filePath">The full path to the file in Jellyfin.</param>
     /// <param name="itemName">The item name from Jellyfin metadata (optional).</param>
     /// <param name="itemId">The Jellyfin item ID (optional).</param>
-    /// <returns>A list of possible MD5 hashes.</returns>
+    /// <returns>A list of possible MD5 hashes, ordered by likelihood (Binary first, then Filename, etc).</returns>
     private static List<string> CalculatePossibleFilenameHashes(string filePath, string? itemName = null, Guid? itemId = null)
     {
         var hashes = new List<string>();
@@ -433,9 +450,59 @@ public class KoReaderSyncManager : IKoReaderSyncManager
                 hashes.Add(CalculateHash(normalized + ".epub"));
                 hashes.Add(CalculateHash(normalized));
             }
+            
+            // Try without author information (just title)
+            // For books like "101 Conversation Starters for Couples - Gary Chapman"
+            if (itemName.Contains(" - "))
+            {
+                var parts = itemName.Split(" - ");
+                var titleOnly = parts[0].Trim();
+                hashes.Add(CalculateHash(titleOnly + ".epub"));
+                hashes.Add(CalculateHash(titleOnly));
+                
+                // Try with author-first format (common with OPDS plugins)
+                // "Title - Author" becomes "Author - Title"
+                if (parts.Length >= 2)
+                {
+                    var authorFirst = parts[1].Trim() + " - " + titleOnly;
+                    hashes.Add(CalculateHash(authorFirst + ".epub"));
+                    hashes.Add(CalculateHash(authorFirst));
+                }
+            }
         }
         
-        // 6. Item ID variations (for OPDS-downloaded books)
+        // 6. Filename variations (without author, case variations, etc)
+        // KOReader might normalize or store filenames differently
+        // Also handle OPDS plugin filename transformations (author - title format)
+        var baseFilenameWithExt = Path.GetFileName(filePath);
+        var baseFilenameNoExt = Path.GetFileNameWithoutExtension(filePath);
+        
+        if (!string.IsNullOrEmpty(baseFilenameWithExt))
+        {
+            // Try just the title part of filename (before hyphen)
+            if (baseFilenameWithExt.Contains(" - "))
+            {
+                var parts = baseFilenameWithExt.Split(" - ");
+                var titlePart = parts[0].Trim();
+                hashes.Add(CalculateHash(titlePart + ".epub"));
+                hashes.Add(CalculateHash(titlePart));
+                
+                // Try author-first format (OPDS plugin renames files this way)
+                // If current filename is "Title - Author.epub", also try "Author - Title.epub"
+                if (parts.Length >= 2)
+                {
+                    var authorFirst = parts[1].Trim() + " - " + titlePart;
+                    hashes.Add(CalculateHash(authorFirst + ".epub"));
+                    hashes.Add(CalculateHash(authorFirst));
+                }
+            }
+            
+            // Try with different extension casings
+            hashes.Add(CalculateHash(baseFilenameNoExt + ".EPUB"));
+            hashes.Add(CalculateHash(baseFilenameNoExt + ".Epub"));
+        }
+        
+        // 7. Item ID variations (for OPDS-downloaded books)
         // OPDS may download files with item ID-based filenames
         if (itemId.HasValue && itemId.Value != Guid.Empty)
         {
@@ -550,14 +617,19 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     }
     
     /// <summary>
-    /// Calculates the binary MD5 hash of a file using KOReader's algorithm.
+    /// Calculates the partial MD5 hash of a file using KOReader's algorithm.
     /// This matches KOReader's "Binary" document matching method (the default).
     /// 
-    /// KOReader's Binary method calculates MD5 of the first 16384 bytes (16KB) of the file.
-    /// This is the most reliable matching method as it doesn't depend on filename or path.
+    /// KOReader uses a sophisticated partial MD5 algorithm that samples the file at exponential intervals:
+    /// - Samples at positions: 256B, 1KB, 4KB, 16KB, 64KB, 256KB, 1MB, 4MB, 16MB, 64MB, 1GB
+    /// - Each sample is 1KB (1024 bytes)
+    /// - Uses exponential spacing (step << (2*i)) to cover the entire file with heavier weight at start
+    /// - This approach is robust against file modifications while being fast to compute
+    /// 
+    /// Reference: https://github.com/koreader/koreader/blob/main/frontend/util.lua#L1104-L1128
     /// </summary>
     /// <param name="filePath">The full path to the file.</param>
-    /// <returns>The MD5 hash as a lowercase hexadecimal string, or empty string on error.</returns>
+    /// <returns>The partial MD5 hash as a lowercase hexadecimal string, or empty string on error.</returns>
     /// <exception cref="IOException">Thrown when file cannot be read due to I/O error.</exception>
     /// <exception cref="UnauthorizedAccessException">Thrown when access to file is denied.</exception>
     private static string CalculateBinaryHash(string filePath)
@@ -567,25 +639,48 @@ public class KoReaderSyncManager : IKoReaderSyncManager
             return string.Empty;
         }
         
-        const int binaryHashSize = 16384; // 16KB - KOReader's default binary hash size
+        const int step = 1024; // 1KB step size
+        const int chunkSize = 1024; // Read 1KB chunks
         
         try
         {
             using var fileStream = File.OpenRead(filePath);
             
-            // Read first 16KB (or less if file is smaller)
-            // Use Math.Min with long values first to avoid potential integer overflow for files > 2GB
-            var bufferSize = (int)Math.Min((long)binaryHashSize, fileStream.Length);
-            var buffer = new byte[bufferSize];
-            int bytesRead = fileStream.Read(buffer, 0, buffer.Length);
+            // Use incremental MD5 calculation for the partial hash algorithm
+            using var md5 = MD5.Create();
+            var buffer = new byte[chunkSize];
             
-            if (bytesRead == 0)
+            // Sample file at exponential intervals: 256B, 1KB, 4KB, 16KB, 64KB, 256KB, 1MB, 4MB, 16MB, 64MB, 1GB
+            // Loop: for i = -1 to 10
+            // Position: step << (2*i) = 1024 * 4^i
+            for (int i = -1; i <= 10; i++)
             {
-                return string.Empty;
+                // Calculate position: 1024 * 4^i
+                long position = (long)step * (long)Math.Pow(4, i);
+                
+                // Seek to position (will not go beyond file size)
+                if (position >= fileStream.Length)
+                {
+                    break;
+                }
+                
+                fileStream.Seek(position, SeekOrigin.Begin);
+                
+                // Read 1KB from this position
+                int bytesRead = fileStream.Read(buffer, 0, chunkSize);
+                if (bytesRead > 0)
+                {
+                    md5.TransformBlock(buffer, 0, bytesRead, null, 0);
+                }
+                else
+                {
+                    break;
+                }
             }
             
-            // Calculate MD5 of the bytes read using the modern static method
-            var hashBytes = MD5.HashData(buffer.AsSpan(0, bytesRead));
+            // Finalize the MD5 hash
+            md5.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+            var hashBytes = md5.Hash;
             return Convert.ToHexString(hashBytes).ToLowerInvariant();
         }
         catch

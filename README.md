@@ -7,7 +7,7 @@ A Jellyfin plugin that enables seamless reading progress synchronization between
 - ✅ **KOReader Progress Sync API Compatible**: Implements the KOReader sync server API specification
 - ✅ **Jellyfin Native Authentication**: Uses your existing Jellyfin username and password
 - ✅ **Automatic Conflict Resolution**: Keeps the furthest reading progress when conflicts occur
-- ✅ **Smart Book Matching**: Uses Binary matching method (MD5 of first 16KB) with multiple fallback strategies
+- ✅ **Smart Book Matching**: Uses binary matching method (partial MD5 hash) with multiple fallback strategies
 - ✅ **Works with KOReader Defaults**: No configuration changes needed in KOReader
 - ✅ **Multi-Device Support**: Sync progress across multiple KOReader devices
 - ✅ **Privacy Focused**: Stores only progress data (percentage, position), no file content
