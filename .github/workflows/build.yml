@@ -57,29 +57,30 @@ jobs:
         cd artifacts
         zip -r -X "jellyfin-koreader-sync_${{ steps.get_version.outputs.VERSION }}.zip" jellyfin-koreader-sync
     
-    - name: Update manifest.json
-      run: |
-        ./update-manifest.sh "${{ steps.get_version.outputs.VERSION }}" "artifacts/jellyfin-koreader-sync_${{ steps.get_version.outputs.VERSION }}.zip"
-    
-    - name: Commit updated manifest
-      if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
-      run: |
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "github-actions[bot]"
-        git add manifest.json
-        if ! git diff --staged --quiet; then
-          git commit -m "Update manifest.json for version ${{ steps.get_version.outputs.VERSION }} [skip ci]"
-          git push
-        fi
-    
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: jellyfin-koreader-sync
         path: artifacts/jellyfin-koreader-sync_${{ steps.get_version.outputs.VERSION }}.zip
     
+    - name: Update manifest.json
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        ./update-manifest.sh "${{ steps.get_version.outputs.VERSION }}" "artifacts/jellyfin-koreader-sync_${{ steps.get_version.outputs.VERSION }}.zip"
+    
+    - name: Commit updated manifest
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add manifest.json
+        if ! git diff --staged --quiet; then
+          git commit -m "Update manifest.json for version ${{ steps.get_version.outputs.VERSION }} [skip ci]"
+          git push origin HEAD:main
+        fi
+    
     - name: Create Release
-      if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+      if: startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ steps.get_version.outputs.TAG }}
