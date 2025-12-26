@@ -10,43 +10,11 @@
     "versions": [
       {
         "version": "2.0.0.0",
-        "changelog": "- Refactored book identification to use filename-based matching\n- BREAKING: Users must set Document matching method to 'Filename' in KOReader\n- Removed ISBN-based matching in favor of filename matching\n- Updated documentation with filename matching requirements",
+        "changelog": "- Initial Release\n- No conflict resolution, plugin only stores the furthest progress\n- Uses your existing Jellyfin username and password\n- Only Support Binary matching with KOReader",
         "targetAbi": "10.10.0.0",
         "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v2.0.0/jellyfin-koreader-sync_2.0.0.0.zip",
         "checksum": "A77D4F7CDF688582B16D8D75F272B8E1",
         "timestamp": "2025-12-26T11:09:05Z"
-      },
-      {
-        "version": "1.1.4.0",
-        "changelog": "- Refactored book identification to use filename-based matching\n- BREAKING: Users must set Document matching method to 'Filename' in KOReader\n- Removed ISBN-based matching in favor of filename matching\n- Updated documentation with filename matching requirements",
-        "targetAbi": "10.10.0.0",
-        "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v1.1.4/jellyfin-koreader-sync_1.1.4.0.zip",
-        "checksum": "6A7AB9B417452277B3D919611BCE0AB1",
-        "timestamp": "2025-12-26T01:57:31Z"
-      },
-      {
-        "version": "1.1.3.0",
-        "changelog": "- Refactored book identification to use filename-based matching\n- BREAKING: Users must set Document matching method to 'Filename' in KOReader\n- Removed ISBN-based matching in favor of filename matching\n- Updated documentation with filename matching requirements",
-        "targetAbi": "10.10.0.0",
-        "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v1.1.3/jellyfin-koreader-sync_1.1.3.0.zip",
-        "checksum": "72716349F63D4C3C8F3E40818C3DB1AE",
-        "timestamp": "2025-12-26T01:12:12Z"
-      },
-      {
-        "version": "1.1.2.0",
-        "changelog": "- Refactored book identification to use filename-based matching\n- BREAKING: Users must set Document matching method to 'Filename' in KOReader\n- Removed ISBN-based matching in favor of filename matching\n- Updated documentation with filename matching requirements",
-        "targetAbi": "10.10.0.0",
-        "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v1.1.2/jellyfin-koreader-sync_1.1.2.0.zip",
-        "checksum": "53B5BF3AE89EDD4EA547852B7E9C5004",
-        "timestamp": "2025-12-26T00:13:13Z"
-      },
-      {
-        "version": "1.1.1.0",
-        "changelog": "- Refactored book identification to use filename-based matching\n- BREAKING: Users must set Document matching method to 'Filename' in KOReader\n- Removed ISBN-based matching in favor of filename matching\n- Updated documentation with filename matching requirements",
-        "targetAbi": "10.10.0.0",
-        "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v1.1.1/jellyfin-koreader-sync_1.1.1.0.zip",
-        "checksum": "C02B1BD5072DEACC8446C8BC53A56919",
-        "timestamp": "2025-12-25T23:16:38Z"
       }
     ]
   }
