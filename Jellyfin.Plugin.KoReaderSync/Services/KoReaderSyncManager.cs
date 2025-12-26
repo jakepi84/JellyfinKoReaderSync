@@ -574,7 +574,9 @@ public class KoReaderSyncManager : IKoReaderSyncManager
             using var fileStream = File.OpenRead(filePath);
             
             // Read first 16KB (or less if file is smaller)
-            var buffer = new byte[Math.Min(binaryHashSize, (int)fileStream.Length)];
+            // Use Math.Min with long values first to avoid potential integer overflow for files > 2GB
+            var bufferSize = (int)Math.Min((long)binaryHashSize, fileStream.Length);
+            var buffer = new byte[bufferSize];
             int bytesRead = fileStream.Read(buffer, 0, buffer.Length);
             
             if (bytesRead == 0)
@@ -600,9 +602,8 @@ public class KoReaderSyncManager : IKoReaderSyncManager
     /// <returns>The MD5 hash as a lowercase hexadecimal string.</returns>
     private static string CalculateHash(string input)
     {
-        using var md5 = MD5.Create();
         var inputBytes = Encoding.UTF8.GetBytes(input);
-        var hashBytes = md5.ComputeHash(inputBytes);
+        var hashBytes = MD5.HashData(inputBytes);
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
     }
 
