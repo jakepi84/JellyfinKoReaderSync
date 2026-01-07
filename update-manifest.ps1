@@ -2,8 +2,21 @@ param(
     [string]$Version,
     [string]$ZipPath,
     [string]$ReleaseTag,
-    [string]$RepositoryUrl = "https://github.com/jakepi84/JellyfinKoReaderSync"
+    [string]$RepositorySlug
 )
+
+# Infer RepositorySlug from git remote if not provided
+if ([string]::IsNullOrWhiteSpace($RepositorySlug)) {
+    $remote = (git config --get remote.origin.url 2>$null) -replace '\.git$', ''
+    if ($remote -match 'github.com[:/](.+/.+)$') {
+        $RepositorySlug = $matches[1]
+    } else {
+        Write-Error "Could not infer RepositorySlug from git remote. Please provide -RepositorySlug."
+        exit 1
+    }
+}
+
+$RepositoryUrl = "https://github.com/$RepositorySlug"
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
     Write-Error "Version is required"
