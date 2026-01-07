@@ -117,17 +117,6 @@ if (Test-Path $ZipPath) {
     $size = (Get-Item $ZipPath).Length / 1KB
     Write-Host "ZIP created: $ZipName ($([Math]::Round($size, 2)) KB)"
     Write-Host ""
-    Write-Host "Updating manifest.json..."
-    if (Test-Path "update-manifest.ps1") {
-        & ./update-manifest.ps1 -Version $Version -ZipPath $ZipPath -ReleaseTag $ReleaseTag -RepositorySlug $RepositorySlug
-        if ($LASTEXITCODE -ne 0) {
-            Write-Warning "Manifest update script reported an error."
-        } else {
-            Write-Host "Manifest updated."
-        }
-    } else {
-        Write-Warning "update-manifest.ps1 not found; skipping manifest update."
-    }
 
     # GitHub release handling (always enabled by default)
     $remoteTag = (git ls-remote --tags origin $ReleaseTag 2>$null)
@@ -159,6 +148,8 @@ if (Test-Path $ZipPath) {
     $title = "$PluginName $ReleaseTag"
     $notes = "Version $shortVer - $commitMsg"
 
+    $assetUploadNeeded = $false
+    
     if (-not $releaseExists) {
         Write-Host "Creating GitHub release '$ReleaseTag' and uploading asset."
         gh release create $ReleaseTag $ZipPath --repo $RepositorySlug --title $title --notes $notes 2>&1 | Write-Host
@@ -167,19 +158,41 @@ if (Test-Path $ZipPath) {
             exit 1
         }
         Write-Host "GitHub release created and asset uploaded."
+        $assetUploadNeeded = $false
     } else {
-        Write-Host "Release '$ReleaseTag' already exists; ensuring asset is uploaded."
+        Write-Host "Release '$ReleaseTag' already exists; checking if asset upload is needed."
         $zipName = Split-Path $ZipPath -Leaf
         $assetNames = gh release view $ReleaseTag --repo $RepositorySlug --json assets --jq ".assets[].name" 2>$null
         if ($assetNames -notcontains $zipName) {
+            Write-Host "Asset '$zipName' not present; uploading."
             gh release upload $ReleaseTag $ZipPath --repo $RepositorySlug 2>&1 | Write-Host
             if ($LASTEXITCODE -ne 0) {
                 Write-Error "Failed to upload asset to existing release '$ReleaseTag'"
                 exit 1
             }
             Write-Host "Asset '$zipName' uploaded to release."
+            $assetUploadNeeded = $false
         } else {
             Write-Host "Asset '$zipName' already present; skipping upload."
+            Write-Host "WARNING: Skipping manifest update since asset is already on GitHub release."
+            Write-Host "To update the manifest with a new version, create a new version tag and re-run the build."
+            $assetUploadNeeded = $true
+        }
+    }
+
+    # Only update manifest if we uploaded a new asset or created a new release
+    if (-not $assetUploadNeeded) {
+        Write-Host ""
+        Write-Host "Updating manifest.json..."
+        if (Test-Path "update-manifest.ps1") {
+            & ./update-manifest.ps1 -Version $Version -ZipPath $ZipPath -ReleaseTag $ReleaseTag -RepositorySlug $RepositorySlug
+            if ($LASTEXITCODE -ne 0) {
+                Write-Warning "Manifest update script reported an error."
+            } else {
+                Write-Host "Manifest updated."
+            }
+        } else {
+            Write-Warning "update-manifest.ps1 not found; skipping manifest update."
         }
     }
     

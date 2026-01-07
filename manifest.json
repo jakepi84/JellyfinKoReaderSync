@@ -9,6 +9,14 @@
         "imageUrl":  "https://raw.githubusercontent.com/jakepi84/JellyfinKoReaderSync/main/logo.png",
         "versions":  [
                          {
+                             "version":  "2.0.1.0",
+                             "changelog":  "Version 2.0.1 - make build release scripts generic for reuse in other projects ",
+                             "targetAbi":  "10.10.0.0",
+                             "sourceUrl":  "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v2.0.1/jellyfin-koreadersync_2.0.1.0.zip",
+                             "checksum":  "443367cd2630798c0f9d90c51dd1ef78",
+                             "timestamp":  "2026-01-07T16:29:36Z"
+                         },
+                         {
                              "version":  "2.0.0.0",
                              "changelog":  "Version 2.0.0 - Cleanup files related to old CI and documentation ",
                              "targetAbi":  "10.10.0.0",
