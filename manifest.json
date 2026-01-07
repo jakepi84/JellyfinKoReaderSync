@@ -1,21 +1,21 @@
-[
-  {
-    "guid": "6B0B1F98-F7B5-4E8A-9E6C-4D5A3B2E1C9A",
-    "name": "KOReader Sync",
-    "description": "Sync book reading progress with KOReader devices. Provides an API endpoint compatible with KOReader Progress Sync functionality, allowing users to sync their book reading progress between KOReader devices and Jellyfin.",
-    "overview": "Sync book reading progress with KOReader",
-    "owner": "jakepi84",
-    "category": "Books",
-    "imageUrl": "https://raw.githubusercontent.com/jakepi84/JellyfinKoReaderSync/main/logo.png",
-    "versions": [
-      {
-        "version": "2.0.0.0",
-        "changelog": "- Initial Release\n- No conflict resolution, plugin only stores the furthest progress\n- Uses your existing Jellyfin username and password\n- Only Support Binary matching with KOReader",
-        "targetAbi": "10.10.0.0",
-        "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v2.0.0/jellyfin-koreader-sync_2.0.0.0.zip",
-        "checksum": "A77D4F7CDF688582B16D8D75F272B8E1",
-        "timestamp": "2025-12-26T11:09:05Z"
-      }
-    ]
-  }
+﻿[
+    {
+        "guid":  "6B0B1F98-F7B5-4E8A-9E6C-4D5A3B2E1C9A",
+        "name":  "KOReader Sync",
+        "description":  "Sync book reading progress with KOReader devices. Provides an API endpoint compatible with KOReader Progress Sync functionality, allowing users to sync their book reading progress between KOReader devices and Jellyfin.",
+        "overview":  "Sync book reading progress with KOReader",
+        "owner":  "jakepi84",
+        "category":  "Books",
+        "imageUrl":  "https://raw.githubusercontent.com/jakepi84/JellyfinKoReaderSync/main/logo.png",
+        "versions":  [
+                         {
+                             "version":  "2.0.0.0",
+                             "changelog":  "Version 2.0.0 - Cleanup files related to old CI and documentation ",
+                             "targetAbi":  "10.10.0.0",
+                             "sourceUrl":  "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v2.0.0/jellyfin-koreader-sync_2.0.0.0.zip",
+                             "checksum":  "798286bb3e809d46413ef000bcccf49e",
+                             "timestamp":  "2026-01-07T15:37:41Z"
+                         }
+                     ]
+    }
 ]
