@@ -52,3 +52,7 @@ test_artifacts/
 
 # macOS
 .DS_Store
+
+#Debug and old readme
+debug_epub
+README_files
