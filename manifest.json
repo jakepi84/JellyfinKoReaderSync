@@ -1,29 +1,37 @@
-﻿[
-    {
-        "guid":  "6B0B1F98-F7B5-4E8A-9E6C-4D5A3B2E1C9A",
-        "name":  "KOReader Sync",
-        "description":  "Sync book reading progress with KOReader devices. Provides an API endpoint compatible with KOReader Progress Sync functionality, allowing users to sync their book reading progress between KOReader devices and Jellyfin.",
-        "overview":  "Sync book reading progress with KOReader",
-        "owner":  "jakepi84",
-        "category":  "Books",
-        "imageUrl":  "https://raw.githubusercontent.com/jakepi84/JellyfinKoReaderSync/main/logo.png",
-        "versions":  [
-                         {
-                             "version":  "2.0.1.0",
-                             "changelog":  "Version 2.0.1 - make build release scripts generic for reuse in other projects ",
-                             "targetAbi":  "10.10.0.0",
-                             "sourceUrl":  "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v2.0.1/jellyfin-koreadersync_2.0.1.0.zip",
-                             "checksum":  "443367cd2630798c0f9d90c51dd1ef78",
-                             "timestamp":  "2026-01-07T16:29:36Z"
-                         },
-                         {
-                             "version":  "2.0.0.0",
-                             "changelog":  "Version 2.0.0 - Cleanup files related to old CI and documentation ",
-                             "targetAbi":  "10.10.0.0",
-                             "sourceUrl":  "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v2.0.0/jellyfin-koreader-sync_2.0.0.0.zip",
-                             "checksum":  "798286bb3e809d46413ef000bcccf49e",
-                             "timestamp":  "2026-01-07T15:37:41Z"
-                         }
-                     ]
-    }
+[
+  {
+    "guid": "6B0B1F98-F7B5-4E8A-9E6C-4D5A3B2E1C9A",
+    "name": "KOReader Sync",
+    "description": "Sync book reading progress with KOReader devices. Provides an API endpoint compatible with KOReader Progress Sync functionality, allowing users to sync their book reading progress between KOReader devices and Jellyfin.",
+    "overview": "Sync book reading progress with KOReader",
+    "owner": "jakepi84",
+    "category": "Books",
+    "imageUrl": "https://raw.githubusercontent.com/jakepi84/JellyfinKoReaderSync/main/logo.png",
+    "versions": [
+      {
+        "version": "2.0.2.0",
+        "changelog": "Version 2.0.2 - Release prep for 2.0.2 updating target ABI ",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v2.0.2/jellyfin-koreadersync_2.0.2.0.zip",
+        "checksum": "d08b2588912afdcda150c6935f003d7f",
+        "timestamp": "2026-05-01T10:30:24Z"
+      },
+      {
+        "version": "2.0.1.0",
+        "changelog": "Version 2.0.1 - make build release scripts generic for reuse in other projects ",
+        "targetAbi": "10.10.0.0",
+        "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v2.0.1/jellyfin-koreadersync_2.0.1.0.zip",
+        "checksum": "443367cd2630798c0f9d90c51dd1ef78",
+        "timestamp": "2026-01-07T16:29:36Z"
+      },
+      {
+        "version": "2.0.0.0",
+        "changelog": "Version 2.0.0 - Cleanup files related to old CI and documentation ",
+        "targetAbi": "10.10.0.0",
+        "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v2.0.0/jellyfin-koreader-sync_2.0.0.0.zip",
+        "checksum": "798286bb3e809d46413ef000bcccf49e",
+        "timestamp": "2026-01-07T15:37:41Z"
+      }
+    ]
+  }
 ]
