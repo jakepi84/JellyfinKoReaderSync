@@ -60,7 +60,7 @@ $checksum = [System.BitConverter]::ToString($hash).Replace("-", "").ToLower()
 Write-Host "Checksum: $checksum"
 
 $buildYaml = if (Test-Path "build.yaml") { Get-Content "build.yaml" -Raw } else { $null }
-$targetAbi = if ($buildYaml -and ($buildYaml -match 'targetAbi:\s*"?([^"\n]+)"?')) { $matches[1] } else { "10.10.0.0" }
+$targetAbi = if ($buildYaml -and ($buildYaml -match 'targetAbi:\s*"?([^"\n]+)"?')) { $matches[1] } else { "10.11.0.0" }
 
 # Build changelog from latest commit message; fallback to build.yaml or default
 $changelog = $null
