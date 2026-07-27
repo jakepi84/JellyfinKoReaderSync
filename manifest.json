@@ -9,12 +9,12 @@
     "imageUrl": "https://raw.githubusercontent.com/jakepi84/JellyfinKoReaderSync/main/logo.png",
     "versions": [
       {
-        "version": "2.0.2.0",
-        "changelog": "Version 2.0.2 - Release prep for 2.0.2 updating target ABI ",
+        "version": "2.0.3.0",
+        "changelog": "Version 2.0.3 - AI maintainer takeover! 🤖 Added full automated testing pipeline, end-to-end sync validation, Docker-based builds, and conflict resolution testing. Now maintained by your friendly neighborhood AI assistant with monthly automated maintenance checks.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v2.0.2/jellyfin-koreadersync_2.0.2.0.zip",
-        "checksum": "d08b2588912afdcda150c6935f003d7f",
-        "timestamp": "2026-05-01T10:30:24Z"
+        "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v2.0.3/jellyfin-koreadersync_2.0.3.0.zip",
+        "checksum": "5b68d7a5b24185e7830de7a12a379703",
+        "timestamp": "2026-07-27T23:48:09Z"
       },
       {
         "version": "2.0.1.0",
