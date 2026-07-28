@@ -140,7 +140,7 @@ public class KoReaderSyncManager : IKoReaderSyncManager
         var filePath = GetProgressFilePath(userId, progress.Document);
         try
         {
-            var json = JsonSerializer.Serialize(progress, new JsonSerializerOptions { WriteIndented = true });
+            var json = JsonSerializer.Serialize(progress, new JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
             File.WriteAllText(filePath, json);
             _logger.LogInformation(
                 "Saved progress for user {UserId}, document {Document}: {Percentage}%",

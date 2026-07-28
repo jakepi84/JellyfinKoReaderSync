@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Jellyfin.Plugin.KoReaderSync.Models;
 
 /// <summary>
@@ -9,5 +11,6 @@ public class AuthResponseDto
     /// Gets or sets the authorization status.
     /// Returns "OK" when authentication is successful.
     /// </summary>
+    [JsonPropertyName("authorized")]
     public string Authorized { get; set; } = "OK";
 }
