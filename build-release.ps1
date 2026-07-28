@@ -1,3 +1,38 @@
+<#
+  .SYNOPSIS
+  Builds the Jellyfin KOReader Sync plugin, packages it, and optionally creates a GitHub release.
+
+  .DESCRIPTION
+  This script handles the full release workflow:
+    1. Infers plugin name and repo slug from the local directory and git remote
+    2. Resolves the version from -Version, or falls back to the latest git tag
+    3. Builds the plugin DLL via dotnet (net9.0)
+    4. Packages the DLL into a zip artifact
+    5. Creates (or updates) a GitHub release with the zip attached
+    6. Updates manifest.json with checksum and source URL via update-manifest.ps1
+
+  .PARAMETER Version
+  Four-part version string (e.g. "2.0.3.0"). If omitted, derived from the latest git tag.
+
+  .PARAMETER ReleaseTag
+  Git tag for the release (e.g. "v2.0.3"). If omitted, derived from Version.
+
+  .PARAMETER PluginName
+  Project folder name (e.g. "Jellyfin.Plugin.KoReaderSync"). If omitted, auto-detected.
+
+  .PARAMETER RepositorySlug
+  GitHub repo slug (e.g. "jakepi84/JellyfinKoReaderSync"). If omitted, inferred from git remote.
+
+  .PARAMETER CreateGitHubRelease
+  Whether to create a GitHub release. Defaults to $true.
+
+  .PARAMETER AutoTag
+  If the local tag doesn't exist, create and push it automatically instead of erroring.
+
+  .EXAMPLE
+  ./build-release.ps1 -Version 2.0.4.0 -AutoTag
+  # Builds v2.0.4.0, creates tag v2.0.4, and publishes a GitHub release.
+#>
 param(
     [string]$Version,
     [string]$ReleaseTag,
@@ -6,6 +41,10 @@ param(
     [switch]$CreateGitHubRelease = $true,
     [switch]$AutoTag
 )
+
+# ── Phase 1: Resolve parameters ─────────────────────────────────────────────
+# Auto-detect plugin name and repo slug from the local environment so the script
+# can be run without arguments in most cases.
 
 Write-Host "Building Release"
 Write-Host "================"
@@ -33,8 +72,12 @@ if ([string]::IsNullOrWhiteSpace($RepositorySlug)) {
     }
 }
 
+# Normalize the artifact name (e.g. Jellyfin.Plugin.KoReaderSync → jellyfin-koreadersync)
 $artifactName = $PluginName -replace 'Jellyfin\.Plugin\.', 'jellyfin-' | ForEach-Object { $_.ToLower() }
 $targetFramework = "net9.0"
+
+# ── Phase 2: Resolve version and tag ─────────────────────────────────────────
+# Fall back to the latest git tag if -Version wasn't supplied.
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
     # Get latest git tag
@@ -62,6 +105,10 @@ if ([string]::IsNullOrWhiteSpace($ReleaseTag)) {
     $ReleaseTag = "v$($Version.Substring(0, $Version.LastIndexOf('.')))"
 }
 
+# ── Phase 3: Validate / create git tag ───────────────────────────────────────
+# The release needs a tag. If it doesn't exist locally, either create it
+# (with -AutoTag) or error out.
+
 # Validate local tag exists
 $localTag = (git tag --list $ReleaseTag 2>$null)
 if ([string]::IsNullOrWhiteSpace($localTag)) {
@@ -83,6 +130,9 @@ if ([string]::IsNullOrWhiteSpace($localTag)) {
         exit 1
     }
 }
+
+# ── Phase 4: Build and package ────────────────────────────────────────────────
+# Clean artifacts dir, restore deps, build, and zip the DLL.
 
 if (Test-Path "artifacts") {
     Remove-Item -Recurse -Force "artifacts"
@@ -117,6 +167,10 @@ if (Test-Path $ZipPath) {
     $size = (Get-Item $ZipPath).Length / 1KB
     Write-Host "ZIP created: $ZipName ($([Math]::Round($size, 2)) KB)"
     Write-Host ""
+
+    # ── Phase 5: GitHub release ───────────────────────────────────────────────────
+    # Check if a release already exists for this tag. If not, create it and upload
+    # the zip. If it does exist, only upload if the asset is missing.
 
     # GitHub release handling (always enabled by default)
     $remoteTag = (git ls-remote --tags origin $ReleaseTag 2>$null)
@@ -179,6 +233,10 @@ if (Test-Path $ZipPath) {
             $assetUploadNeeded = $true
         }
     }
+
+    # ── Phase 6: Update manifest.json ─────────────────────────────────────────────
+    # Only update the manifest when we actually uploaded a new asset, so we don't
+    # overwrite a previous release's checksum with stale data.
 
     # Only update manifest if we uploaded a new asset or created a new release
     if (-not $assetUploadNeeded) {
