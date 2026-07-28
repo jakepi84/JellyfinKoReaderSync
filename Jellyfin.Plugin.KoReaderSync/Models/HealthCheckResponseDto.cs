@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Jellyfin.Plugin.KoReaderSync.Models;
 
 /// <summary>
@@ -9,5 +11,6 @@ public class HealthCheckResponseDto
     /// Gets or sets the service state.
     /// Returns "OK" when the service is healthy.
     /// </summary>
+    [JsonPropertyName("state")]
     public string State { get; set; } = "OK";
 }
