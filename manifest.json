@@ -9,8 +9,16 @@
     "imageUrl": "https://raw.githubusercontent.com/jakepi84/JellyfinKoReaderSync/main/logo.png",
     "versions": [
       {
+        "version": "2.0.4.0",
+        "changelog": "Fix #19: API responses now use camelCase/snake_case JSON serialization for KOReader compatibility. All DTOs have explicit [JsonPropertyName] attributes.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v2.0.4/jellyfin-koreadersync_2.0.4.0.zip",
+        "checksum": "556d5916dca3f9bbb46edaacc5ecc831",
+        "timestamp": "2026-07-28T10:43:39Z"
+      },
+      {
         "version": "2.0.3.0",
-        "changelog": "Version 2.0.3 - AI maintainer takeover! 🤖 Added full automated testing pipeline, end-to-end sync validation, Docker-based builds, and conflict resolution testing. Now maintained by your friendly neighborhood AI assistant with monthly automated maintenance checks.",
+        "changelog": "Version 2.0.3 - AI maintainer takeover! \ud83e\udd16 Added full automated testing pipeline, end-to-end sync validation, Docker-based builds, and conflict resolution testing. Now maintained by your friendly neighborhood AI assistant with monthly automated maintenance checks.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v2.0.3/jellyfin-koreadersync_2.0.3.0.zip",
         "checksum": "5b68d7a5b24185e7830de7a12a379703",
