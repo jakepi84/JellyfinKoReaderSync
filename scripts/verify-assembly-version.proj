@@ -1,0 +1,39 @@
+<Project>
+
+  <!-- Reports the .NET *assembly* version of a built plugin DLL.
+
+       Jellyfin reports PluginInfo.Version from the DLL assembly version and fetches
+       the plugin icon from "/Plugins/<Id>/<PluginInfo.Version>/Image", so
+       build-release.sh asserts this value equals the plugin version before publishing.
+
+       This file intentionally lives in scripts/ : MSBuild auto-discovers project files
+       in the working directory, so a second *.proj at the repo root breaks
+       `dotnet restore` / `dotnet build` with MSB1011 ("more than one project or
+       solution file").
+
+       Invoked from the repository root (also works through Docker, where the repo is
+       mounted at /src and this project sits at /src/scripts ):
+
+         dotnet msbuild scripts/verify-assembly-version.proj -t:ReportAssemblyVersion -nologo -v:m
+
+       DllPath may be absolute or relative to the repository root.
+       Note: values passed with -p: are MSBuild *global* properties and cannot be
+       reassigned here, so the resolved path is exposed as ResolvedDllPath. -->
+
+  <PropertyGroup>
+    <RepoRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '..'))</RepoRoot>
+    <DllPath Condition="'$(DllPath)' == ''">artifacts/jellyfin-koreadersync/Jellyfin.Plugin.KoReaderSync.dll</DllPath>
+    <!-- NormalizePath leaves an absolute path unchanged, so a relative DllPath resolves
+         against the repository root regardless of the caller's working directory. -->
+    <ResolvedDllPath>$([MSBuild]::NormalizePath('$(RepoRoot)', '$(DllPath)'))</ResolvedDllPath>
+  </PropertyGroup>
+
+  <Target Name="ReportAssemblyVersion">
+    <Error Condition="!Exists('$(ResolvedDllPath)')" Text="Assembly not found: $(ResolvedDllPath)" />
+    <GetAssemblyIdentity AssemblyFiles="$(ResolvedDllPath)">
+      <Output TaskParameter="Assemblies" ItemName="AssemblyVersionInfo" />
+    </GetAssemblyIdentity>
+    <Message Importance="high" Text="ASSEMBLY_VERSION=%(AssemblyVersionInfo.Version)" />
+  </Target>
+
+</Project>
