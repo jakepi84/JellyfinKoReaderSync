@@ -59,8 +59,14 @@ $checksum = [System.BitConverter]::ToString($hash).Replace("-", "").ToLower()
 
 Write-Host "Checksum: $checksum"
 
+# targetAbi: carry over the current newest entry. There is no build.yaml in this
+# repo, so the old 10.11.0.0 default would have silently downgraded a 12.x plugin.
 $buildYaml = if (Test-Path "build.yaml") { Get-Content "build.yaml" -Raw } else { $null }
-$targetAbi = if ($buildYaml -and ($buildYaml -match 'targetAbi:\s*"?([^"\n]+)"?')) { $matches[1] } else { "10.11.0.0" }
+$targetAbi = if ($buildYaml -and ($buildYaml -match 'targetAbi:\s*"?([^"\n]+)"?')) { $matches[1] } else { $manifestArray[0].versions[0].targetAbi }
+if ([string]::IsNullOrWhiteSpace($targetAbi)) {
+    Write-Error "Could not determine targetAbi; pass -TargetAbi."
+    exit 1
+}
 
 # Build changelog from latest commit message; fallback to build.yaml or default
 $changelog = $null

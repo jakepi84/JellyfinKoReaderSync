@@ -5,14 +5,15 @@
   .DESCRIPTION
   This script handles the full release workflow:
     1. Infers plugin name and repo slug from the local directory and git remote
-    2. Resolves the version from -Version, or falls back to the latest git tag
+    2. Resolves the version from -Version, or falls back to Directory.Build.props
+       (never from a git tag: an ABI-shaped tag once leaked into the assembly version)
     3. Builds the plugin DLL via dotnet (net9.0)
     4. Packages the DLL into a zip artifact
     5. Creates (or updates) a GitHub release with the zip attached
     6. Updates manifest.json with checksum and source URL via update-manifest.ps1
 
   .PARAMETER Version
-  Four-part version string (e.g. "2.0.3.0"). If omitted, derived from the latest git tag.
+  Four-part version string (e.g. "2.0.4.1"). If omitted, read from Directory.Build.props.
 
   .PARAMETER ReleaseTag
   Git tag for the release (e.g. "v2.0.3"). If omitted, derived from Version.
@@ -30,8 +31,8 @@
   If the local tag doesn't exist, create and push it automatically instead of erroring.
 
   .EXAMPLE
-  ./build-release.ps1 -Version 2.0.4.0 -AutoTag
-  # Builds v2.0.4.0, creates tag v2.0.4, and publishes a GitHub release.
+  ./build-release.ps1 -Version 2.0.4.1 -AutoTag
+  # Builds plugin version 2.0.4.1, creates tag v2.0.4.1, and publishes a GitHub release.
 #>
 param(
     [string]$Version,
@@ -77,32 +78,48 @@ $artifactName = $PluginName -replace 'Jellyfin\.Plugin\.', 'jellyfin-' | ForEach
 $targetFramework = "net9.0"
 
 # ── Phase 2: Resolve version and tag ─────────────────────────────────────────
-# Fall back to the latest git tag if -Version wasn't supplied.
+# The plugin version comes from Directory.Build.props (single source of truth).
+# It is deliberately NOT derived from a git tag: the ABI-shaped v12.0.0 tag was
+# once fed into -p:AssemblyVersion, which made Jellyfin advertise 12.0.0.0 and
+# request /Plugins/<Id>/12.0.0.0/Image (404 -> blank icon tile).
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
-    # Get latest git tag
-    $latestTag = git describe --tags --abbrev=0 2>$null
-    if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($latestTag)) {
-        # Convert v1.0.1 to 1.0.1.0
-        $tagVersion = $latestTag -replace '^v', ''
-        if ($tagVersion -match '^\d+\.\d+\.\d+$') {
-            $Version = "$tagVersion.0"
-        } else {
-            $Version = $tagVersion
-        }
-        Write-Host "Found latest tag: $latestTag"
-    } else {
-        Write-Error "Could not get latest git tag. Ensure git is configured and tags exist."
+    $propsPath = "Directory.Build.props"
+    if (Test-Path $propsPath) {
+        $propsXml = [xml](Get-Content $propsPath -Raw)
+        $Version = $propsXml.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+    }
+    if ([string]::IsNullOrWhiteSpace($Version)) {
+        Write-Error "Could not read the Version element from Directory.Build.props. Pass -Version explicitly."
         exit 1
     }
+    Write-Host "Plugin version (Directory.Build.props): $Version"
 }
 
+# Normalize 3-part input to the 4-part form used by assemblies and manifests
+if ($Version -match '^\d+\.\d+\.\d+$') {
+    $Version = "$Version.0"
+}
+if ($Version -notmatch '^\d+\.\d+\.\d+\.\d+$') {
+    Write-Error "Version '$Version' is not a 3- or 4-part numeric version."
+    exit 1
+}
+
+# Guard 1: the plugin version must match the newest entry in manifest.json.
+$manifestJson = Get-Content "manifest.json" -Raw | ConvertFrom-Json
+if ($manifestJson -isnot [Array]) { $manifestJson = @($manifestJson) }
+$manifestVer = $manifestJson[0].versions[0].version
+if ($manifestVer -ne $Version) {
+    Write-Error "Version mismatch - refusing to build a broken artifact.`n  Version: $Version`n  manifest.json: $manifestVer`nAdd the $Version entry to manifest.json before building."
+    exit 1
+}
+Write-Host "Plugin version matches manifest.json: $manifestVer"
+
 if ([string]::IsNullOrWhiteSpace($ReleaseTag)) {
-    # Normalize version to 4-part if user supplied 3-part
-    if (-not [string]::IsNullOrWhiteSpace($Version) -and $Version -match '^\d+\.\d+\.\d+$') {
-        $Version = "$Version.0"
-    }
-    $ReleaseTag = "v$($Version.Substring(0, $Version.LastIndexOf('.')))"
+    # A GitHub release label derived from the plugin version. It never influences
+    # the built DLL version. Note the existing v2.0.4 tag, so a 2.0.4.1 release
+    # must use the distinct v2.0.4.1 tag.
+    $ReleaseTag = "v$Version"
 }
 
 # ── Phase 3: Validate / create git tag ───────────────────────────────────────
@@ -162,6 +179,17 @@ $ZipPath = Join-Path -Path "artifacts" -ChildPath $ZipName
 
 Write-Host "Creating ZIP: $ZipName"
 Compress-Archive -Path "artifacts/$artifactName" -DestinationPath $ZipPath -Force
+
+# Guard 2: the built assembly version must equal the plugin version. Jellyfin
+# reports PluginInfo.Version from the DLL assembly version and fetches the icon
+# from /Plugins/<Id>/<PluginInfo.Version>/Image, so a mismatch ships a blank tile.
+$builtDll = "artifacts/$artifactName/$PluginName.dll"
+$asmVersion = [System.Reflection.AssemblyName]::GetAssemblyName((Resolve-Path $builtDll).Path).Version.ToString()
+if ($asmVersion -ne $Version) {
+    Write-Error "Assembly version mismatch - refusing to publish.`n  built assembly version: $asmVersion`n  plugin version: $Version"
+    exit 1
+}
+Write-Host "Assembly version verified: $asmVersion"
 
 if (Test-Path $ZipPath) {
     $size = (Get-Item $ZipPath).Length / 1KB
