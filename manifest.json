@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/jakepi84/JellyfinKoReaderSync/main/logo.png",
     "versions": [
       {
+        "version": "2.0.4.2",
+        "changelog": "Version 2.0.4.2 - Update targetABI to 12.1.0.0 for Jellyfin 12.1",
+        "targetAbi": "12.1.0.0",
+        "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v2.0.4.2/jellyfin-koreadersync_2.0.4.2.zip",
+        "checksum": "144b591cf379adb2656d052bba6c09b1",
+        "timestamp": "2026-09-21T14:01:46Z"
+      },
+      {
         "version": "2.0.4.1",
         "changelog": "Version 2.0.4.1 - Fix plugin icon: build the DLL with assembly version equal to the plugin version. The v12.0.0 tag had leaked 12.0.0.0 into the assembly version, so Jellyfin requested /Plugins/<Id>/12.0.0.0/Image (404) and showed a blank tile. The release tag no longer influences the plugin version.",
         "targetAbi": "12.0.0.0",
