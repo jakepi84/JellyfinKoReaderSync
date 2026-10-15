@@ -10,11 +10,11 @@
     "versions": [
       {
         "version": "2.0.4.3",
-        "changelog": "Version 2.0.4.3 - Update targetABI to 12.2.0.0 for Jellyfin 12.2. Fix KOReader binary-hash sampling (first sample at 256B): reading progress now appears in the Jellyfin UI for Binary-method documents.",
+        "changelog": "Version 2.0.4 - Merge pull request #26 from jakepi84/release/v2.0.4.3\n\nRelease v2.0.4.3 - targetABI 12.2.0.0 for Jellyfin 12.2 + binary-hash fix",
         "targetAbi": "12.2.0.0",
         "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v2.0.4.3/jellyfin-koreadersync_2.0.4.3.zip",
-        "checksum": "pending",
-        "timestamp": "1970-01-01T00:00:00Z"
+        "checksum": "be9a0c4564ccca7bb65b469af7eccf80",
+        "timestamp": "2026-10-15T11:40:29Z"
       },
       {
         "version": "2.0.4.2",
@@ -42,7 +42,7 @@
       },
       {
         "version": "2.0.3.0",
-        "changelog": "Version 2.0.3 - AI maintainer takeover! \ud83e\udd16 Added full automated testing pipeline, end-to-end sync validation, Docker-based builds, and conflict resolution testing. Now maintained by your friendly neighborhood AI assistant with monthly automated maintenance checks.",
+        "changelog": "Version 2.0.3 - AI maintainer takeover! 🤖 Added full automated testing pipeline, end-to-end sync validation, Docker-based builds, and conflict resolution testing. Now maintained by your friendly neighborhood AI assistant with monthly automated maintenance checks.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v2.0.3/jellyfin-koreadersync_2.0.3.0.zip",
         "checksum": "5b68d7a5b24185e7830de7a12a379703",
