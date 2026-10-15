@@ -4,7 +4,7 @@ A Jellyfin plugin that syncs reading progress between [KOReader](https://github.
 
 ## 🤖 Maintained by AI
 
-This plugin is maintained by an automated AI assistant with monthly checks for Jellyfin compatibility, full regression testing, and end-to-end sync validation — all under Jake's supervision. The AI handles the grunt work; Jake's still the human in charge.
+This plugin is maintained by an automated AI assistant with **weekly checks** (Monday mornings) for open issues, Jellyfin compatibility, and a full regression matrix — every release is validated end-to-end against real Jellyfin servers in Docker before it ships, all under Jake's supervision. The AI handles the grunt work; Jake's still the human in charge.
 
 ## Features
 
