@@ -500,13 +500,16 @@ public class KoReaderSyncManager : IKoReaderSyncManager
             using var md5 = MD5.Create();
             var buffer = new byte[chunkSize];
             
-            // Sample file at exponential intervals: 256B, 1KB, 4KB, 16KB, 64KB, 256KB, 1MB, 4MB, 16MB, 64MB, 1GB
+            // Sample file at exponential intervals: 256B, 1KB, 4KB, 16KB, 64KB, 256KB, 1MB, 4MB, 16MB, 64MB, 256MB, 1GB
             // Loop: for i = -1 to 10
-            // Position: step << (2*i) = 1024 * 4^i
+            // KOReader's partialMD5 uses step * 4^i in floating point, so i = -1 samples at
+            // offset 256. Math.Pow(4, -1) truncated to long is 0, which shifted the first
+            // sample to offset 0 and produced a hash KOReader could never match, breaking
+            // the native Jellyfin progress bridge for every Binary-method document.
+            // Exact integer math keeps positions identical to KOReader's algorithm.
             for (int i = -1; i <= 10; i++)
             {
-                // Calculate position: 1024 * 4^i
-                long position = (long)step * (long)Math.Pow(4, i);
+                long position = i < 0 ? step >> (-2 * i) : step << (2 * i);
                 
                 // Seek to position (will not go beyond file size)
                 if (position >= fileStream.Length)
