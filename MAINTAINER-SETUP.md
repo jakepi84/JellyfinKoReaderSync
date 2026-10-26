@@ -44,7 +44,7 @@ and only then pushes — as jakepi-bot.
    does not match the asset is treated as a supply-chain concern: stop and
    verify before trusting it.
 4. **Release numbering**: each Jellyfin minor gets a patch-level plugin bump
-   (2.0.4.1→12.0, 2.0.4.2→12.1, 2.0.4.3→12.2).
+   (2.0.4.1→12.0, 2.0.4.2→12.1, 2.0.4.3→12.2, 2.0.4.4→12.3).
 
 ## QA matrix (`jks-qa/` in the maintainer workspace)
 
@@ -55,7 +55,7 @@ functions), `make-epubs.py` (deterministic test books + KOReader partial-MD5
 document hashes), `partial_md5.py` (the hash algorithm, mirroring the
 plugin's `CalculateBinaryHash`), `check-script.py` (compile-safety gate).
 
-Runs against pinned Docker images (`jellyfin/jellyfin:12.2` and `:12.1`) on
+Runs against pinned Docker images (`jellyfin/jellyfin:12.3` and `:12.2`) on
 16xxx host ports with per-run config, media, scratch, and state dirs.
 Coverage — all must pass with FAILED 0:
 
@@ -90,7 +90,8 @@ map 1:1 onto them and all state is on disk, so a killed step simply re-runs.
 ## Not automated (deliberate follow-ups)
 
 - **.NET 10 migration**: `Jellyfin.Controller` 12.x NuGet packages are
-  net10.0-only (verified 2026-10-15: NU1202 against net9.0). The plugin
+  net10.0-only (verified 2026-10-15: NU1202 against net9.0; re-verified
+  2026-10-26 for 12.3.0 — the nupkg's only lib target is net10.0). The plugin
   compiles against the 10.11 packages while declaring a 12.x `targetAbi`,
   which is the shipping pattern across the 12.x line; a true net10.0 retarget
   is a separate migration release.
