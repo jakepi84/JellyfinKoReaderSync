@@ -13,8 +13,8 @@
         "changelog": "Version 2.0.4.5 - targetABI 12.4.0.0 for Jellyfin 12.4; metadata-only compatibility bump, no code changes",
         "targetAbi": "12.4.0.0",
         "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v2.0.4.5/jellyfin-koreadersync_2.0.4.5.zip",
-        "checksum": "PENDING",
-        "timestamp": "2026-11-02T15:02:49Z"
+        "checksum": "7fb123873d518988141f1a91e95cf350",
+        "timestamp": "2026-11-02T15:07:41Z"
       },
       {
         "version": "2.0.4.4",
