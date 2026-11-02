@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/jakepi84/JellyfinKoReaderSync/main/logo.png",
     "versions": [
       {
+        "version": "2.0.4.5",
+        "changelog": "Version 2.0.4.5 - targetABI 12.4.0.0 for Jellyfin 12.4; metadata-only compatibility bump, no code changes",
+        "targetAbi": "12.4.0.0",
+        "sourceUrl": "https://github.com/jakepi84/JellyfinKoReaderSync/releases/download/v2.0.4.5/jellyfin-koreadersync_2.0.4.5.zip",
+        "checksum": "PENDING",
+        "timestamp": "2026-11-02T15:02:49Z"
+      },
+      {
         "version": "2.0.4.4",
         "changelog": "Version 2.0.4.4 - targetABI 12.3.0.0 for Jellyfin 12.3; metadata-only compatibility bump, no code changes",
         "targetAbi": "12.3.0.0",
